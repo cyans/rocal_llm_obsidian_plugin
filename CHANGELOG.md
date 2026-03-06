@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-03-06
+
+### Changed
+- GitHub/BRAT beta distribution metadata 정리
+- 저장소 URL과 배포 문서 정합성 수정
+- 버전 매핑 파일(`versions.json`) 추가
+
+### Fixed
+- 빈 최종 응답 또는 raw tool-call 출력이 사용자 화면에 노출되던 문제 완화
+- 선택된 파일이 있을 때 새 파일 생성보다 기존 파일 수정 흐름을 우선하도록 유도 강화
+
 ## [0.2.0] - 2026-03-06
 
 ### Added

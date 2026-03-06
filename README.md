@@ -2,7 +2,7 @@
 
 > 로컬 LLM을 활용한 Obsidian 볼트용 AI 에이전트 플러그인
 
-[![GitHub release](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/cyans/rocal_llm_obsidian_plugin)
+[![GitHub release](https://img.shields.io/badge/version-0.2.1-blue.svg)](https://github.com/cyans/rocal_llm_obsidian_plugin)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
