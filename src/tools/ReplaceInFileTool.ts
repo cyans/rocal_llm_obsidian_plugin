@@ -75,7 +75,7 @@ export class ReplaceInFileTool extends BaseTool {
     private vault: Vault;
     private modal: FileOperationModal;
     private autoConfirm: boolean = false;
-    private createBackups: boolean = true;
+    private createBackups: boolean = false;
 
     constructor(vault: Vault, modal: FileOperationModal) {
         super();

@@ -252,13 +252,49 @@ describe('AgentController', () => {
             agentController.setActiveFilePath('notes/current.md');
             agentController.setActiveFileContent('# Title\nbody');
 
-            await agentController.processMessage('키워드를 추가해줘');
+            await agentController.processMessage('이 노트를 요약해줘');
 
             const [messages] = chatSpy.mock.calls[0];
             expect(messages[0].content).toContain('CURRENTLY SELECTED FILE');
             expect(messages[0].content).toContain('notes/current.md');
             expect(messages[messages.length - 1].content).toContain('[현재 선택된 파일 경로]');
             expect(messages[messages.length - 1].content).toContain('notes/current.md');
+        });
+
+        it('should directly write extracted keywords into the selected note', async () => {
+            const writeTool = new class extends BaseTool {
+                definition: ToolDefinition = {
+                    name: 'write_to_file',
+                    description: 'Write a file',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            file_path: { type: 'string' },
+                            content: { type: 'string' }
+                        },
+                        required: ['file_path', 'content']
+                    }
+                };
+
+                async execute(params: Record<string, any>): Promise<any> {
+                    return { success: true, file_path: params.file_path, content: params.content };
+                }
+            };
+            toolRegistry.register(writeTool);
+            agentController.setActiveFilePath('notes/current.md');
+            agentController.setActiveFileContent(`---
+title: Test
+---
+
+본문 내용`);
+
+            jest.spyOn(llmService, 'chat').mockResolvedValue(
+                textResult('#키워드1 #키워드2 #키워드3 #키워드4 #키워드5 #키워드6 #키워드7')
+            );
+
+            const result = await agentController.processMessage('이 노트의 키워드를 작성해서 노트에 기재해줘');
+
+            expect(result.content).toContain('notes/current.md 파일에 관련 키워드 7개를 기재했습니다');
         });
 
         it('should return a friendly message when replace_in_file succeeds but final content is empty', async () => {
@@ -296,6 +332,41 @@ describe('AgentController', () => {
             expect(result.content).toContain('2개의 변경');
         });
 
+        it('should prefer replace fallback when the model returns a confirmation question after editing', async () => {
+            const replaceTool = new class extends BaseTool {
+                definition: ToolDefinition = {
+                    name: 'replace_in_file',
+                    description: 'Replace text in file',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            file_path: { type: 'string' },
+                            replacements: { type: 'array' }
+                        },
+                        required: ['file_path', 'replacements']
+                    }
+                };
+
+                async execute(): Promise<any> {
+                    return { success: true, replacements_applied: 1 };
+                }
+            };
+            toolRegistry.register(replaceTool);
+            agentController.setActiveFilePath('notes/current.md');
+
+            jest.spyOn(llmService, 'chat')
+                .mockResolvedValueOnce(toolCallResult('replace_in_file', {
+                    file_path: 'notes/current.md',
+                    replacements: []
+                }))
+                .mockResolvedValueOnce(textResult('이 키워드들을 현재 파일에 추가할까요?'));
+
+            const result = await agentController.processMessage('이 키워드들을 노트에 기재해줘');
+
+            expect(result.content).toContain('notes/current.md 파일을 수정했습니다');
+            expect(result.content).not.toContain('추가할까요');
+        });
+
         it('should fall back when final response only contains raw tool call markup', async () => {
             jest.spyOn(mockTool, 'execute').mockResolvedValue({
                 results: [
@@ -309,12 +380,63 @@ describe('AgentController', () => {
 
             jest.spyOn(llmService, 'chat')
                 .mockResolvedValueOnce(toolCallResult('vault_search', { query: '인포그래픽' }))
-                .mockResolvedValueOnce(textResult('<function=vault_search({"query":"인포그래픽"})'));
+                .mockResolvedValueOnce(textResult('({"file_path":"notes/current.md","replacements":[]})'));
 
             const result = await agentController.processMessage('인포그래픽 글 찾아줘');
 
             expect(result.content).toContain('관련된 볼트 노트를 찾았습니다');
             expect(result.content).toContain('인포그래픽 정리');
+        });
+
+        it('should parse multiline replace_in_file tool calls embedded in text', async () => {
+            const replaceTool = new class extends BaseTool {
+                definition: ToolDefinition = {
+                    name: 'replace_in_file',
+                    description: 'Replace text in file',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            file_path: { type: 'string' },
+                            replacements: { type: 'array' }
+                        },
+                        required: ['file_path', 'replacements']
+                    }
+                };
+
+                async execute(): Promise<any> {
+                    return { success: true, replacements_applied: 1 };
+                }
+            };
+            toolRegistry.register(replaceTool);
+
+            jest.spyOn(llmService, 'chat')
+                .mockResolvedValueOnce(textResult(`이 키워드들을 노트에 기재해줘
+
+[Calling tool: replace_in_file({
+  "file_path": "notes/current.md",
+  "replacements": [
+    {
+      "search": "## Tags",
+      "replace": "## Tags\\n#AI음악 #프롬프트엔지니어링"
+    }
+  ]
+})]`))
+                .mockResolvedValueOnce(textResult(''));
+
+            const result = await agentController.processMessage('이 키워드들을 노트에 기재해줘');
+
+            expect(result.content).toContain('파일을 수정했습니다');
+        });
+
+        it('should retry when the model returns an incomplete tool_call marker', async () => {
+            jest.spyOn(llmService, 'chat')
+                .mockResolvedValueOnce(textResult('<tool_call>'))
+                .mockResolvedValueOnce(textResult('정리한 내용을 현재 노트에 반영했습니다.'));
+
+            const result = await agentController.processMessage('이 글 내용도 보기 좋게 정리해서 다시 이 노트에 작성해줘');
+
+            expect(result.content).toBe('정리한 내용을 현재 노트에 반영했습니다.');
+            expect(agentController.getIterationCount()).toBe(2);
         });
     });
 

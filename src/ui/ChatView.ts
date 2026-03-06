@@ -22,6 +22,7 @@ export class ChatView extends ItemView {
     private fileBadge: FileBadge | null = null;
     private activeFilePath: string | null = null;
     private isProcessing: boolean = false;
+    private isComposingInput: boolean = false;
 
     constructor(leaf: WorkspaceLeaf, plugin: VaultAgentPlugin) {
         super(leaf);
@@ -107,6 +108,12 @@ export class ChatView extends ItemView {
             this.inputEl.style.height = 'auto';
             this.inputEl.style.height = this.inputEl.scrollHeight + 'px';
         });
+        this.inputEl.addEventListener('compositionstart', () => {
+            this.isComposingInput = true;
+        });
+        this.inputEl.addEventListener('compositionend', () => {
+            this.isComposingInput = false;
+        });
 
         // 전송 버튼 컨테이너
         const composerFooter = composerEl.createDiv({ cls: 'chat-composer-footer' });
@@ -129,6 +136,10 @@ export class ChatView extends ItemView {
 
         // Enter 키로 전송 (Shift+Enter는 줄바꿈)
         this.inputEl.addEventListener('keydown', (e) => {
+            if (this.isComposingInput || e.isComposing || e.keyCode === 229) {
+                return;
+            }
+
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
@@ -296,8 +307,10 @@ export class ChatView extends ItemView {
         sanitized = sanitized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '').trim();
         sanitized = sanitized.replace(/<tool>[\s\S]*?<\/tool>/gi, '').trim();
         sanitized = sanitized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, '').trim();
+        sanitized = sanitized.replace(/<\/?(?:tool_call|tool|invoke)\s*>/gi, '').trim();
         sanitized = sanitized.replace(/\[Calling tool:[\s\S]*?\]/gi, '').trim();
         sanitized = sanitized.replace(/\[Calling tool:[\s\S]*$/gi, '').trim();
+        sanitized = sanitized.replace(/\(?\{\s*"file_path"\s*:[\s\S]*$/gi, '').trim();
         sanitized = sanitized.replace(/<function=[\s\S]*$/gi, '').trim();
         sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
         sanitized = sanitized.replace(/[ \t]+\n/g, '\n');

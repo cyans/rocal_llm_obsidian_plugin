@@ -11,10 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub/BRAT beta distribution metadata 정리
 - 저장소 URL과 배포 문서 정합성 수정
 - 버전 매핑 파일(`versions.json`) 추가
+- 선택된 노트의 키워드 기재 요청을 전용 안정 경로로 처리하도록 개선
+- 파일 수정 도구의 기본 백업 생성 동작을 비활성화
 
 ### Fixed
 - 빈 최종 응답 또는 raw tool-call 출력이 사용자 화면에 노출되던 문제 완화
 - 선택된 파일이 있을 때 새 파일 생성보다 기존 파일 수정 흐름을 우선하도록 유도 강화
+- 한글 IME 입력 후 Enter 전송 시 마지막 글자가 입력창에 남던 문제 수정
+- 불완전한 `<tool_call>` 응답이 오면 한 번 더 재시도하도록 보완
+- 키워드 태그 추출 후 `#\`.` 같은 잘못된 태그가 저장되던 문제 수정
 
 ## [0.2.0] - 2026-03-06
 

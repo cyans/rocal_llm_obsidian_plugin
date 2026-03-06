@@ -49,7 +49,7 @@ export class WriteToFileTool extends BaseTool {
     private vault: Vault;
     private modal: FileOperationModal;
     private autoConfirm: boolean = false;
-    private createBackups: boolean = true;
+    private createBackups: boolean = false;
     private backupTimestamp: boolean = true;
 
     constructor(vault: Vault, modal: FileOperationModal) {

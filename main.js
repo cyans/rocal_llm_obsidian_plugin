@@ -213,6 +213,7 @@ var ChatView = class extends import_obsidian2.ItemView {
     this.fileBadge = null;
     this.activeFilePath = null;
     this.isProcessing = false;
+    this.isComposingInput = false;
     this.plugin = plugin;
   }
   getViewType() {
@@ -271,6 +272,12 @@ var ChatView = class extends import_obsidian2.ItemView {
       this.inputEl.style.height = "auto";
       this.inputEl.style.height = this.inputEl.scrollHeight + "px";
     });
+    this.inputEl.addEventListener("compositionstart", () => {
+      this.isComposingInput = true;
+    });
+    this.inputEl.addEventListener("compositionend", () => {
+      this.isComposingInput = false;
+    });
     const composerFooter = composerEl.createDiv({ cls: "chat-composer-footer" });
     const composerMeta = composerFooter.createDiv({ cls: "chat-composer-meta" });
     composerMeta.createSpan({
@@ -288,6 +295,9 @@ var ChatView = class extends import_obsidian2.ItemView {
     });
     this.sendButtonEl.onclick = () => this.sendMessage();
     this.inputEl.addEventListener("keydown", (e) => {
+      if (this.isComposingInput || e.isComposing || e.keyCode === 229) {
+        return;
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         this.sendMessage();
@@ -423,8 +433,10 @@ ${rawLLMResponse}`;
     sanitized = sanitized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "").trim();
     sanitized = sanitized.replace(/<tool>[\s\S]*?<\/tool>/gi, "").trim();
     sanitized = sanitized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, "").trim();
+    sanitized = sanitized.replace(/<\/?(?:tool_call|tool|invoke)\s*>/gi, "").trim();
     sanitized = sanitized.replace(/\[Calling tool:[\s\S]*?\]/gi, "").trim();
     sanitized = sanitized.replace(/\[Calling tool:[\s\S]*$/gi, "").trim();
+    sanitized = sanitized.replace(/\(?\{\s*"file_path"\s*:[\s\S]*$/gi, "").trim();
     sanitized = sanitized.replace(/<function=[\s\S]*$/gi, "").trim();
     sanitized = sanitized.replace(/\n{3,}/g, "\n\n");
     sanitized = sanitized.replace(/[ \t]+\n/g, "\n");
@@ -879,8 +891,11 @@ When you need to use a tool, respond in ONE of these formats:
 - If you already know the exact file_path, do NOT call vault_search again for the same request.
 - If there is a currently selected file in the editor and the user asks to add keywords, tags, frontmatter, sections, or edits, modify that same file with replace_in_file instead of creating a new file.
 - Do NOT create a new file when the user is clearly asking to update the currently selected file.
+- If the user says "\uAE30\uC7AC\uD574\uC918", "\uCD94\uAC00\uD574\uC918", "\uB123\uC5B4\uC918", "\uC218\uC815\uD574\uC918", "\uC801\uC6A9\uD574\uC918" or otherwise clearly requests an edit, execute the edit immediately. Do not ask a follow-up confirmation question first.
 - Preserve the existing file path and title unless the user explicitly asks to create a separate note.
 - Do NOT insert underscores into generated titles or filenames unless the user explicitly asked for that naming style.
+- After a successful file edit, reply with one short confirmation sentence only.
+- Never include raw tool arguments, raw JSON, replacement blocks, or copied file content in the final user-facing answer.
 - Do NOT say a listed tool is unavailable. If it appears in AVAILABLE TOOLS, you can use it.
 - Do NOT repeat the same tool call with the same arguments when it already failed or returned enough information.
 - If the file content is already present in the conversation, summarize directly instead of searching again.
@@ -897,6 +912,9 @@ If you know a file path and need its full content, use vault_read_contents inste
 If you have the full content and the user asked for a summary, use vault_summarize.
 If there is a currently selected file and the request is an edit, update that file with replace_in_file instead of creating a new one.
 Do not create extra files unless the user explicitly asks for a new note.
+If the user clearly asked you to apply an edit, do it immediately and do not ask for confirmation first.
+After a successful file edit, answer with one short confirmation sentence only.
+Never include raw tool arguments, raw JSON, replacement blocks, or copied file content in the final answer.
 Do not insert underscores into titles or filenames unless explicitly requested.
 Do not repeat the same tool call with the same arguments.
 Respond in the user's language.`;
@@ -1028,10 +1046,15 @@ var _AgentController = class _AgentController {
    */
   async processMessage(userMessage) {
     this.iterationCount = 0;
+    const keywordTagEditResponse = await this.tryHandleKeywordTagEdit(userMessage);
+    if (keywordTagEditResponse) {
+      return keywordTagEditResponse;
+    }
     const toolDefinitions = this.agentModeEnabled ? this.toolRegistry.getOpenAIToolDefinitions() : [];
     const allToolCalls = [];
     const toolCallCounts = /* @__PURE__ */ new Map();
     const executedToolResults = [];
+    let incompleteToolRetryCount = 0;
     const systemPrompt = this.promptBuilder.buildSystemPrompt(
       toolDefinitions,
       void 0,
@@ -1079,8 +1102,20 @@ ${this.activeFileContent}
         toolCalls = this.parseToolCalls(result.content);
       }
       if (toolCalls.length === 0) {
+        if (this.hasIncompleteToolCallMarker(result.content) && incompleteToolRetryCount < _AgentController.MAX_INCOMPLETE_TOOL_RETRIES) {
+          incompleteToolRetryCount++;
+          messages.push({
+            role: "system",
+            content: "Your previous reply contained an incomplete tool call marker. Respond again with either a complete tool call or a normal user-facing answer. Do not output partial tags like <tool_call>."
+          });
+          continue;
+        }
         const normalizedContent = this.normalizeFinalContent(result.content);
-        const finalContent = normalizedContent || this.buildToolResultFallback(userMessage, executedToolResults);
+        const shouldPreferFallback = this.shouldPreferToolFallback(
+          normalizedContent,
+          executedToolResults
+        );
+        const finalContent = !shouldPreferFallback && normalizedContent ? normalizedContent : this.buildToolResultFallback(userMessage, executedToolResults);
         this.addToHistory("user", userMessage);
         this.addToHistory("assistant", finalContent);
         return {
@@ -1136,6 +1171,47 @@ ${this.activeFileContent}
       content: "\uCD5C\uB300 \uB3C4\uAD6C \uD638\uCD9C \uD69F\uC218\uC5D0 \uB3C4\uB2EC\uD588\uC2B5\uB2C8\uB2E4."
     };
   }
+  async tryHandleKeywordTagEdit(userMessage) {
+    if (!this.activeFilePath || !this.activeFileContent) {
+      return null;
+    }
+    const isKeywordRequest = /키워드|태그/.test(userMessage);
+    const isEditRequest = /기재해줘|추가해줘|넣어줘|적용해줘|수정해줘|적어줘|써줘|작성해줘/.test(userMessage);
+    if (!isKeywordRequest || !isEditRequest) {
+      return null;
+    }
+    this.emitStatus("\uD0A4\uC6CC\uB4DC \uCD94\uCD9C \uC911...");
+    const keywords = await this.extractKeywordsFromContent(this.activeFileContent);
+    if (keywords.length === 0) {
+      const content = "\uD0A4\uC6CC\uB4DC\uB97C \uCD94\uCD9C\uD558\uC9C0 \uBABB\uD574 \uB178\uD2B8\uB97C \uC218\uC815\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.";
+      this.addToHistory("user", userMessage);
+      this.addToHistory("assistant", content);
+      return { type: "text", content };
+    }
+    const updatedContent = this.applyKeywordsToContent(this.activeFileContent, keywords);
+    if (updatedContent === this.activeFileContent) {
+      const content = `${this.activeFilePath} \uD30C\uC77C\uC5D0\uB294 \uC774\uBBF8 \uD574\uB2F9 \uD0A4\uC6CC\uB4DC\uAC00 \uBC18\uC601\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.`;
+      this.addToHistory("user", userMessage);
+      this.addToHistory("assistant", content);
+      return { type: "text", content };
+    }
+    this.emitStatus("\uD30C\uC77C \uC218\uC815 \uC911...");
+    const result = await this.toolRegistry.execute("write_to_file", {
+      file_path: this.activeFilePath,
+      content: updatedContent
+    });
+    if (result == null ? void 0 : result.success) {
+      this.activeFileContent = updatedContent;
+      const content = `${this.activeFilePath} \uD30C\uC77C\uC5D0 \uAD00\uB828 \uD0A4\uC6CC\uB4DC ${keywords.length}\uAC1C\uB97C \uAE30\uC7AC\uD588\uC2B5\uB2C8\uB2E4.`;
+      this.addToHistory("user", userMessage);
+      this.addToHistory("assistant", content);
+      return { type: "tool_call", content };
+    }
+    const error = (result == null ? void 0 : result.error) || (result == null ? void 0 : result.reason) || "\uD30C\uC77C \uC218\uC815\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.";
+    this.addToHistory("user", userMessage);
+    this.addToHistory("assistant", error);
+    return { type: "text", content: error };
+  }
   /**
    * Safely parse JSON string, returning the object or the original string.
    */
@@ -1174,6 +1250,67 @@ ${this.activeFileContent}
     const entries = keys.map((key) => `${JSON.stringify(key)}:${this.stableStringify(value[key])}`);
     return `{${entries.join(",")}}`;
   }
+  async extractKeywordsFromContent(content) {
+    const prompt = `\uB2E4\uC74C \uB178\uD2B8\uC5D0\uC11C \uAC80\uC0C9\uACFC \uC5F0\uACB0\uC5D0 \uC720\uC6A9\uD55C \uD575\uC2EC \uD0A4\uC6CC\uB4DC\uB9CC \uCD94\uCD9C\uD558\uC138\uC694.
+
+\uADDC\uCE59:
+- \uBC18\uB4DC\uC2DC \uD55C \uC904 \uB610\uB294 \uC5EC\uB7EC \uC904\uC758 \uD574\uC2DC\uD0DC\uADF8\uB9CC \uCD9C\uB825\uD558\uC138\uC694.
+- \uC124\uBA85, \uC81C\uBAA9, \uBB38\uC7A5, \uBC88\uD638\uB97C \uC4F0\uC9C0 \uB9C8\uC138\uC694.
+- 7\uAC1C \uC774\uC0C1 15\uAC1C \uC774\uD558\uB85C \uC791\uC131\uD558\uC138\uC694.
+- \uD55C\uAD6D\uC5B4\uAC00 \uC790\uC5F0\uC2A4\uB7EC\uC6B0\uBA74 \uD55C\uAD6D\uC5B4 \uD0DC\uADF8\uB97C \uC6B0\uC120\uD558\uC138\uC694.
+- \uAC01 \uD0DC\uADF8\uB294 #\uC73C\uB85C \uC2DC\uC791\uD558\uC138\uC694.
+
+        \uB178\uD2B8 \uB0B4\uC6A9:
+${content}`;
+    const response = await this.llmService.chat([{ role: "user", content: prompt }], []);
+    const matches = response.content.match(/#[^\s#]+/g) || [];
+    const normalized = matches.map((tag) => this.normalizeKeywordTag(tag)).filter((tag) => Boolean(tag));
+    return Array.from(new Set(normalized)).slice(0, 15);
+  }
+  normalizeKeywordTag(tag) {
+    if (!tag.startsWith("#")) {
+      return null;
+    }
+    const cleaned = `#${tag.slice(1).replace(/[`"'.,:;!?()[\]{}<>/\\|]+/g, "").replace(/^[^0-9A-Za-z가-힣]+/, "").replace(/[^0-9A-Za-z가-힣&+_-]/g, "")}`;
+    if (cleaned === "#" || cleaned.length < 3) {
+      return null;
+    }
+    if (!/^#[0-9A-Za-z가-힣]/.test(cleaned)) {
+      return null;
+    }
+    return cleaned;
+  }
+  applyKeywordsToContent(content, keywords) {
+    if (keywords.length === 0) {
+      return content;
+    }
+    const existingTags = new Set(content.match(/#[^\s#]+/g) || []);
+    const newKeywords = keywords.filter((keyword) => !existingTags.has(keyword));
+    if (newKeywords.length === 0) {
+      return content;
+    }
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
+    if (frontmatterMatch) {
+      const frontmatterBody = frontmatterMatch[1];
+      const tagBlockMatch = frontmatterBody.match(/(^tags:\n(?:[ \t]*-[ \t].*\n?)*)/m);
+      if (tagBlockMatch) {
+        const tagBlock = tagBlockMatch[1];
+        const appended = `${tagBlock}${newKeywords.map((tag) => `  - ${tag}`).join("\n")}
+`;
+        const updatedFrontmatter2 = frontmatterBody.replace(tagBlock, appended);
+        return content.replace(frontmatterBody, updatedFrontmatter2);
+      }
+      const updatedFrontmatter = `${frontmatterBody}
+tags:
+${newKeywords.map((tag) => `  - ${tag}`).join("\n")}`;
+      return content.replace(frontmatterBody, updatedFrontmatter);
+    }
+    return `${content.trimEnd()}
+
+## \uD0A4\uC6CC\uB4DC
+${newKeywords.join(" ")}
+`;
+  }
   normalizeFinalContent(content) {
     if (!content) {
       return "";
@@ -1182,12 +1319,32 @@ ${this.activeFileContent}
     normalized = normalized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "").trim();
     normalized = normalized.replace(/<tool>[\s\S]*?<\/tool>/gi, "").trim();
     normalized = normalized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, "").trim();
+    normalized = normalized.replace(/<\/?(?:tool_call|tool|invoke)\s*>/gi, "").trim();
     normalized = normalized.replace(/\[Calling tool:[\s\S]*?\]/gi, "").trim();
     normalized = normalized.replace(/\[Calling tool:[\s\S]*$/gi, "").trim();
+    normalized = normalized.replace(/\(?\{\s*"file_path"\s*:[\s\S]*$/gi, "").trim();
     normalized = normalized.replace(/<function=[\s\S]*$/gi, "").trim();
     normalized = normalized.replace(/\n{3,}/g, "\n\n");
     normalized = normalized.replace(/[ \t]+\n/g, "\n");
     return normalized;
+  }
+  hasIncompleteToolCallMarker(content) {
+    if (!content) {
+      return false;
+    }
+    const normalized = content.toLowerCase();
+    return /<(tool_call|tool|invoke)>/.test(normalized) || /<(tool_call|tool|invoke)\b(?![\s\S]*<\/(?:tool_call|tool|invoke)>)/.test(normalized);
+  }
+  shouldPreferToolFallback(normalizedContent, executedToolResults) {
+    if (executedToolResults.length === 0) {
+      return false;
+    }
+    if (!normalizedContent) {
+      return true;
+    }
+    const confirmationLikePattern = /추가할까요|적용할까요|수정할까요|기재할까요|원하시나요|필요하신가요/;
+    const rawArgsPattern = /"file_path"\s*:|"replacements"\s*:|\[Calling tool:|<function=/;
+    return confirmationLikePattern.test(normalizedContent) || rawArgsPattern.test(normalizedContent);
   }
   buildToolResultFallback(userMessage, executedToolResults) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
@@ -1282,24 +1439,11 @@ ${this.activeFileContent}
    */
   parseToolCalls(response) {
     const toolCalls = [];
-    const bracketPattern = /\[Calling tool:\s*(\w+)\s*\((\{[\s\S]*?\})\)\]/g;
-    let match;
-    while ((match = bracketPattern.exec(response)) !== null) {
-      try {
-        const toolName = match[1];
-        const args = JSON.parse(match[2]);
-        toolCalls.push({
-          id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          type: "function",
-          function: { name: toolName, arguments: args }
-        });
-      } catch (e) {
-        console.warn("Failed to parse bracket style tool call:", match[0]);
-      }
-    }
+    toolCalls.push(...this.extractInlineToolCalls(response));
     if (toolCalls.length > 0)
       return toolCalls;
     const xmlPattern = /<(?:tool_call|tool|invoke)>\s*([\s\S]*?)\s*<\/(?:tool_call|tool|invoke)>/g;
+    let match;
     while ((match = xmlPattern.exec(response)) !== null) {
       try {
         const cleanContent = match[1].trim().replace(/<\/?[a-z_]+>/gi, "").trim();
@@ -1332,6 +1476,88 @@ ${this.activeFileContent}
       }
     }
     return toolCalls;
+  }
+  extractInlineToolCalls(response) {
+    const prefixes = [
+      "[Calling tool:",
+      "<function="
+    ];
+    const toolCalls = [];
+    for (const prefix of prefixes) {
+      let startIndex = 0;
+      while (startIndex < response.length) {
+        const prefixIndex = response.indexOf(prefix, startIndex);
+        if (prefixIndex === -1) {
+          break;
+        }
+        const nameStart = prefixIndex + prefix.length;
+        const openParenIndex = response.indexOf("(", nameStart);
+        if (openParenIndex === -1) {
+          break;
+        }
+        const toolName = response.slice(nameStart, openParenIndex).trim();
+        const extraction = this.extractBalancedJsonArgument(response, openParenIndex + 1);
+        if (toolName && extraction) {
+          try {
+            toolCalls.push({
+              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              type: "function",
+              function: {
+                name: toolName,
+                arguments: JSON.parse(extraction.jsonText)
+              }
+            });
+          } catch (e) {
+            console.warn("Failed to parse inline tool call:", response.slice(prefixIndex, extraction.endIndex));
+          }
+          startIndex = extraction.endIndex;
+          continue;
+        }
+        startIndex = openParenIndex + 1;
+      }
+    }
+    return toolCalls;
+  }
+  extractBalancedJsonArgument(input, startIndex) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let jsonStart = -1;
+    for (let index = startIndex; index < input.length; index++) {
+      const char = input[index];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) {
+        continue;
+      }
+      if ((char === "{" || char === "[") && jsonStart === -1) {
+        jsonStart = index;
+      }
+      if (char === "{" || char === "[") {
+        depth++;
+        continue;
+      }
+      if (char === "}" || char === "]") {
+        depth--;
+        if (depth === 0 && jsonStart !== -1) {
+          return {
+            jsonText: input.slice(jsonStart, index + 1),
+            endIndex: index + 1
+          };
+        }
+      }
+    }
+    return null;
   }
   /**
    * Set maximum iterations for the ReAct loop.
@@ -1401,6 +1627,7 @@ ${this.activeFileContent}
   }
 };
 _AgentController.MAX_REPEAT_TOOL_CALLS = 2;
+_AgentController.MAX_INCOMPLETE_TOOL_RETRIES = 2;
 var AgentController = _AgentController;
 
 // src/agent/ToolRegistry.ts
@@ -2008,7 +2235,7 @@ var WriteToFileTool = class extends BaseTool {
       }
     };
     this.autoConfirm = false;
-    this.createBackups = true;
+    this.createBackups = false;
     this.backupTimestamp = true;
     this.vault = vault;
     this.modal = modal;
@@ -2164,7 +2391,7 @@ var ReplaceInFileTool = class extends BaseTool {
       }
     };
     this.autoConfirm = false;
-    this.createBackups = true;
+    this.createBackups = false;
     this.vault = vault;
     this.modal = modal;
   }

@@ -44,6 +44,7 @@ export type StatusCallback = (status: string) => void;
 
 export class AgentController {
     private static readonly MAX_REPEAT_TOOL_CALLS = 2;
+    private static readonly MAX_INCOMPLETE_TOOL_RETRIES = 2;
     private llmService: LLMService;
     private toolRegistry: ToolRegistry;
     private promptBuilder: PromptBuilder;
@@ -96,12 +97,18 @@ export class AgentController {
      */
     async processMessage(userMessage: string): Promise<AgentResponse> {
         this.iterationCount = 0;
+        const keywordTagEditResponse = await this.tryHandleKeywordTagEdit(userMessage);
+        if (keywordTagEditResponse) {
+            return keywordTagEditResponse;
+        }
+
         const toolDefinitions = this.agentModeEnabled
             ? this.toolRegistry.getOpenAIToolDefinitions()
             : [];
         const allToolCalls: ToolCall[] = [];
         const toolCallCounts = new Map<string, number>();
         const executedToolResults: ExecutedToolResult[] = [];
+        let incompleteToolRetryCount = 0;
 
         // Build system prompt with tool definitions for better tool usage guidance
         const systemPrompt = this.promptBuilder.buildSystemPrompt(
@@ -151,10 +158,25 @@ export class AgentController {
             }
 
             if (toolCalls.length === 0) {
+                if (this.hasIncompleteToolCallMarker(result.content)
+                    && incompleteToolRetryCount < AgentController.MAX_INCOMPLETE_TOOL_RETRIES) {
+                    incompleteToolRetryCount++;
+                    messages.push({
+                        role: 'system',
+                        content: 'Your previous reply contained an incomplete tool call marker. Respond again with either a complete tool call or a normal user-facing answer. Do not output partial tags like <tool_call>.'
+                    });
+                    continue;
+                }
+
                 // No tool calls - model produced final answer
                 const normalizedContent = this.normalizeFinalContent(result.content);
-                const finalContent = normalizedContent
-                    || this.buildToolResultFallback(userMessage, executedToolResults);
+                const shouldPreferFallback = this.shouldPreferToolFallback(
+                    normalizedContent,
+                    executedToolResults
+                );
+                const finalContent = !shouldPreferFallback && normalizedContent
+                    ? normalizedContent
+                    : this.buildToolResultFallback(userMessage, executedToolResults);
                 this.addToHistory('user', userMessage);
                 this.addToHistory('assistant', finalContent);
                 return {
@@ -227,6 +249,56 @@ export class AgentController {
         };
     }
 
+    private async tryHandleKeywordTagEdit(userMessage: string): Promise<AgentResponse | null> {
+        if (!this.activeFilePath || !this.activeFileContent) {
+            return null;
+        }
+
+        const isKeywordRequest = /키워드|태그/.test(userMessage);
+        const isEditRequest = /기재해줘|추가해줘|넣어줘|적용해줘|수정해줘|적어줘|써줘|작성해줘/.test(userMessage);
+
+        if (!isKeywordRequest || !isEditRequest) {
+            return null;
+        }
+
+        this.emitStatus('키워드 추출 중...');
+        const keywords = await this.extractKeywordsFromContent(this.activeFileContent);
+
+        if (keywords.length === 0) {
+            const content = '키워드를 추출하지 못해 노트를 수정하지 않았습니다.';
+            this.addToHistory('user', userMessage);
+            this.addToHistory('assistant', content);
+            return { type: 'text', content };
+        }
+
+        const updatedContent = this.applyKeywordsToContent(this.activeFileContent, keywords);
+        if (updatedContent === this.activeFileContent) {
+            const content = `${this.activeFilePath} 파일에는 이미 해당 키워드가 반영되어 있습니다.`;
+            this.addToHistory('user', userMessage);
+            this.addToHistory('assistant', content);
+            return { type: 'text', content };
+        }
+
+        this.emitStatus('파일 수정 중...');
+        const result = await this.toolRegistry.execute('write_to_file', {
+            file_path: this.activeFilePath,
+            content: updatedContent
+        });
+
+        if (result?.success) {
+            this.activeFileContent = updatedContent;
+            const content = `${this.activeFilePath} 파일에 관련 키워드 ${keywords.length}개를 기재했습니다.`;
+            this.addToHistory('user', userMessage);
+            this.addToHistory('assistant', content);
+            return { type: 'tool_call', content };
+        }
+
+        const error = result?.error || result?.reason || '파일 수정에 실패했습니다.';
+        this.addToHistory('user', userMessage);
+        this.addToHistory('assistant', error);
+        return { type: 'text', content: error };
+    }
+
     /**
      * Safely parse JSON string, returning the object or the original string.
      */
@@ -277,6 +349,80 @@ export class AgentController {
         return `{${entries.join(',')}}`;
     }
 
+    private async extractKeywordsFromContent(content: string): Promise<string[]> {
+        const prompt = `다음 노트에서 검색과 연결에 유용한 핵심 키워드만 추출하세요.
+
+규칙:
+- 반드시 한 줄 또는 여러 줄의 해시태그만 출력하세요.
+- 설명, 제목, 문장, 번호를 쓰지 마세요.
+- 7개 이상 15개 이하로 작성하세요.
+- 한국어가 자연스러우면 한국어 태그를 우선하세요.
+- 각 태그는 #으로 시작하세요.
+
+        노트 내용:
+${content}`;
+
+        const response = await this.llmService.chat([{ role: 'user', content: prompt }], []);
+        const matches = response.content.match(/#[^\s#]+/g) || [];
+        const normalized = matches
+            .map(tag => this.normalizeKeywordTag(tag))
+            .filter((tag): tag is string => Boolean(tag));
+        return Array.from(new Set(normalized)).slice(0, 15);
+    }
+
+    private normalizeKeywordTag(tag: string): string | null {
+        if (!tag.startsWith('#')) {
+            return null;
+        }
+
+        const cleaned = `#${tag
+            .slice(1)
+            .replace(/[`"'.,:;!?()[\]{}<>/\\|]+/g, '')
+            .replace(/^[^0-9A-Za-z가-힣]+/, '')
+            .replace(/[^0-9A-Za-z가-힣&+_-]/g, '')}`;
+
+        if (cleaned === '#' || cleaned.length < 3) {
+            return null;
+        }
+
+        if (!/^#[0-9A-Za-z가-힣]/.test(cleaned)) {
+            return null;
+        }
+
+        return cleaned;
+    }
+
+    private applyKeywordsToContent(content: string, keywords: string[]): string {
+        if (keywords.length === 0) {
+            return content;
+        }
+
+        const existingTags = new Set(content.match(/#[^\s#]+/g) || []);
+        const newKeywords = keywords.filter(keyword => !existingTags.has(keyword));
+
+        if (newKeywords.length === 0) {
+            return content;
+        }
+
+        const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
+        if (frontmatterMatch) {
+            const frontmatterBody = frontmatterMatch[1];
+            const tagBlockMatch = frontmatterBody.match(/(^tags:\n(?:[ \t]*-[ \t].*\n?)*)/m);
+
+            if (tagBlockMatch) {
+                const tagBlock = tagBlockMatch[1];
+                const appended = `${tagBlock}${newKeywords.map(tag => `  - ${tag}`).join('\n')}\n`;
+                const updatedFrontmatter = frontmatterBody.replace(tagBlock, appended);
+                return content.replace(frontmatterBody, updatedFrontmatter);
+            }
+
+            const updatedFrontmatter = `${frontmatterBody}\ntags:\n${newKeywords.map(tag => `  - ${tag}`).join('\n')}`;
+            return content.replace(frontmatterBody, updatedFrontmatter);
+        }
+
+        return `${content.trimEnd()}\n\n## 키워드\n${newKeywords.join(' ')}\n`;
+    }
+
     private normalizeFinalContent(content: string | undefined): string {
         if (!content) {
             return '';
@@ -286,13 +432,43 @@ export class AgentController {
         normalized = normalized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '').trim();
         normalized = normalized.replace(/<tool>[\s\S]*?<\/tool>/gi, '').trim();
         normalized = normalized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, '').trim();
+        normalized = normalized.replace(/<\/?(?:tool_call|tool|invoke)\s*>/gi, '').trim();
         normalized = normalized.replace(/\[Calling tool:[\s\S]*?\]/gi, '').trim();
         normalized = normalized.replace(/\[Calling tool:[\s\S]*$/gi, '').trim();
+        normalized = normalized.replace(/\(?\{\s*"file_path"\s*:[\s\S]*$/gi, '').trim();
         normalized = normalized.replace(/<function=[\s\S]*$/gi, '').trim();
         normalized = normalized.replace(/\n{3,}/g, '\n\n');
         normalized = normalized.replace(/[ \t]+\n/g, '\n');
 
         return normalized;
+    }
+
+    private hasIncompleteToolCallMarker(content: string | undefined): boolean {
+        if (!content) {
+            return false;
+        }
+
+        const normalized = content.toLowerCase();
+        return /<(tool_call|tool|invoke)>/.test(normalized)
+            || /<(tool_call|tool|invoke)\b(?![\s\S]*<\/(?:tool_call|tool|invoke)>)/.test(normalized);
+    }
+
+    private shouldPreferToolFallback(
+        normalizedContent: string,
+        executedToolResults: ExecutedToolResult[]
+    ): boolean {
+        if (executedToolResults.length === 0) {
+            return false;
+        }
+
+        if (!normalizedContent) {
+            return true;
+        }
+
+        const confirmationLikePattern = /추가할까요|적용할까요|수정할까요|기재할까요|원하시나요|필요하신가요/;
+        const rawArgsPattern = /"file_path"\s*:|"replacements"\s*:|\[Calling tool:|<function=/;
+
+        return confirmationLikePattern.test(normalizedContent) || rawArgsPattern.test(normalizedContent);
     }
 
     private buildToolResultFallback(
@@ -411,27 +587,13 @@ export class AgentController {
     private parseToolCalls(response: string): ToolCall[] {
         const toolCalls: ToolCall[] = [];
 
-        // Strategy 1: Parse Qwen bracket style
-        const bracketPattern = /\[Calling tool:\s*(\w+)\s*\((\{[\s\S]*?\})\)\]/g;
-        let match: RegExpExecArray | null;
-        while ((match = bracketPattern.exec(response)) !== null) {
-            try {
-                const toolName = match[1];
-                const args = JSON.parse(match[2]);
-                toolCalls.push({
-                    id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    type: 'function',
-                    function: { name: toolName, arguments: args }
-                });
-            } catch (e) {
-                console.warn('Failed to parse bracket style tool call:', match[0]);
-            }
-        }
+        toolCalls.push(...this.extractInlineToolCalls(response));
 
         if (toolCalls.length > 0) return toolCalls;
 
         // Strategy 2: Parse Qwen XML style (tool_call, tool, invoke)
         const xmlPattern = /<(?:tool_call|tool|invoke)>\s*([\s\S]*?)\s*<\/(?:tool_call|tool|invoke)>/g;
+        let match: RegExpExecArray | null;
         while ((match = xmlPattern.exec(response)) !== null) {
             try {
                 const cleanContent = match[1].trim().replace(/<\/?[a-z_]+>/gi, '').trim();
@@ -468,6 +630,111 @@ export class AgentController {
         }
 
         return toolCalls;
+    }
+
+    private extractInlineToolCalls(response: string): ToolCall[] {
+        const prefixes = [
+            '[Calling tool:',
+            '<function='
+        ];
+        const toolCalls: ToolCall[] = [];
+
+        for (const prefix of prefixes) {
+            let startIndex = 0;
+
+            while (startIndex < response.length) {
+                const prefixIndex = response.indexOf(prefix, startIndex);
+                if (prefixIndex === -1) {
+                    break;
+                }
+
+                const nameStart = prefixIndex + prefix.length;
+                const openParenIndex = response.indexOf('(', nameStart);
+                if (openParenIndex === -1) {
+                    break;
+                }
+
+                const toolName = response.slice(nameStart, openParenIndex).trim();
+                const extraction = this.extractBalancedJsonArgument(response, openParenIndex + 1);
+
+                if (toolName && extraction) {
+                    try {
+                        toolCalls.push({
+                            id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                            type: 'function',
+                            function: {
+                                name: toolName,
+                                arguments: JSON.parse(extraction.jsonText)
+                            }
+                        });
+                    } catch {
+                        console.warn('Failed to parse inline tool call:', response.slice(prefixIndex, extraction.endIndex));
+                    }
+
+                    startIndex = extraction.endIndex;
+                    continue;
+                }
+
+                startIndex = openParenIndex + 1;
+            }
+        }
+
+        return toolCalls;
+    }
+
+    private extractBalancedJsonArgument(
+        input: string,
+        startIndex: number
+    ): { jsonText: string; endIndex: number } | null {
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+        let jsonStart = -1;
+
+        for (let index = startIndex; index < input.length; index++) {
+            const char = input[index];
+
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+
+            if (char === '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (inString) {
+                continue;
+            }
+
+            if ((char === '{' || char === '[') && jsonStart === -1) {
+                jsonStart = index;
+            }
+
+            if (char === '{' || char === '[') {
+                depth++;
+                continue;
+            }
+
+            if (char === '}' || char === ']') {
+                depth--;
+
+                if (depth === 0 && jsonStart !== -1) {
+                    return {
+                        jsonText: input.slice(jsonStart, index + 1),
+                        endIndex: index + 1
+                    };
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -59,8 +59,11 @@ When you need to use a tool, respond in ONE of these formats:
 - If you already know the exact file_path, do NOT call vault_search again for the same request.
 - If there is a currently selected file in the editor and the user asks to add keywords, tags, frontmatter, sections, or edits, modify that same file with replace_in_file instead of creating a new file.
 - Do NOT create a new file when the user is clearly asking to update the currently selected file.
+- If the user says "기재해줘", "추가해줘", "넣어줘", "수정해줘", "적용해줘" or otherwise clearly requests an edit, execute the edit immediately. Do not ask a follow-up confirmation question first.
 - Preserve the existing file path and title unless the user explicitly asks to create a separate note.
 - Do NOT insert underscores into generated titles or filenames unless the user explicitly asked for that naming style.
+- After a successful file edit, reply with one short confirmation sentence only.
+- Never include raw tool arguments, raw JSON, replacement blocks, or copied file content in the final user-facing answer.
 - Do NOT say a listed tool is unavailable. If it appears in AVAILABLE TOOLS, you can use it.
 - Do NOT repeat the same tool call with the same arguments when it already failed or returned enough information.
 - If the file content is already present in the conversation, summarize directly instead of searching again.
@@ -78,6 +81,9 @@ If you know a file path and need its full content, use vault_read_contents inste
 If you have the full content and the user asked for a summary, use vault_summarize.
 If there is a currently selected file and the request is an edit, update that file with replace_in_file instead of creating a new one.
 Do not create extra files unless the user explicitly asks for a new note.
+If the user clearly asked you to apply an edit, do it immediately and do not ask for confirmation first.
+After a successful file edit, answer with one short confirmation sentence only.
+Never include raw tool arguments, raw JSON, replacement blocks, or copied file content in the final answer.
 Do not insert underscores into titles or filenames unless explicitly requested.
 Do not repeat the same tool call with the same arguments.
 Respond in the user's language.`;

@@ -87,6 +87,8 @@ describe('PromptBuilder', () => {
             expect(systemPrompt).toContain('notes/current.md');
             expect(systemPrompt).toContain('modify that same file with replace_in_file');
             expect(systemPrompt).toContain('Do NOT insert underscores into generated titles or filenames');
+            expect(systemPrompt).toContain('Do not ask a follow-up confirmation question first');
+            expect(systemPrompt).toContain('Never include raw tool arguments');
         });
 
         it('should build system prompt with custom instructions', () => {
