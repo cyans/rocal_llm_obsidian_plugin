@@ -1,0 +1,19 @@
+
+    /**
+     * 활성 파일 내용 읽기
+     */
+    private async readActiveFileContent(): Promise<string | null> {
+        if (\!this.activeFilePath) return null;
+        
+        try {
+            const file = this.app.vault.getAbstractFileByPath(this.activeFilePath);
+            if (file && 'read' in file) {
+                return await this.app.vault.read(file as any);
+            }
+            return null;
+        } catch (error) {
+            console.warn('[ChatView] Failed to read file:', this.activeFilePath, error);
+            return null;
+        }
+    }
+}

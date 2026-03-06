@@ -1,0 +1,5 @@
+
+        // 플러그인 로드 시 자동으로 채팅 뷰 열기
+        this.app.workspace.onLayoutReady(() => {
+            this.activateView();
+        });

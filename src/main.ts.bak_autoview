@@ -1,0 +1,121 @@
+/**
+ * Obsidian Vault Agent Plugin
+ * Main entry point for the plugin
+ * @MX:SPEC: SPEC-PLUGIN-001
+ * @MX:ANCHOR: Plugin lifecycle - Obsidian API integration point
+ * @MX:REASON: Fan_in from all plugin components
+ */
+
+import { Plugin, WorkspaceLeaf, MarkdownView } from 'obsidian';
+import { VaultAgentSettingTab } from './settings';
+import { DEFAULT_SETTINGS, VaultAgentSettings } from './types';
+import { ChatView, VIEW_TYPE_VAULT_AGENT_CHAT } from './ui/ChatView';
+import { LLMService } from './llm/LLMService';
+import { ConversationManager } from './agent/ConversationManager';
+import { AgentController } from './agent/AgentController';
+import { ToolRegistry } from './agent/ToolRegistry';
+
+export default class VaultAgentPlugin extends Plugin {
+    settings: VaultAgentSettings;
+    llmService: LLMService;
+    conversationManager: ConversationManager;
+    agentController: AgentController;
+    toolRegistry: ToolRegistry;
+
+    async onload() {
+        console.log('Loading Vault Agent Plugin');
+
+        // Load settings
+        await this.loadSettings();
+
+        // Initialize services
+        this.llmService = new LLMService(this.settings);
+        this.conversationManager = new ConversationManager();
+        this.toolRegistry = new ToolRegistry(this.app);
+        this.agentController = new AgentController(
+            this.llmService,
+            this.toolRegistry,
+            true // Enable agent mode
+        );
+
+        // Register tools
+        this.toolRegistry.registerAllTools(this.settings);
+
+        // Register chat view type
+        this.registerView(VIEW_TYPE_VAULT_AGENT_CHAT, (leaf) => new ChatView(leaf, this));
+
+        // Add settings tab
+        this.addSettingTab(new VaultAgentSettingTab(this.app, this));
+
+        // Add ribbon icon
+        this.addRibbonIcon('message-square', 'Vault Agent 채팅 열기', () => {
+            this.activateView();
+        });
+
+        // 파일 선택 이벤트 리스너 등록
+        this.app.workspace.on('active-leaf-change', () => {
+            this.handleFileSelection();
+        });
+    }
+
+    onunload() {
+        console.log('Unloading Vault Agent Plugin');
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
+
+    /**
+     * 채팅 뷰 활성화
+     */
+    async activateView() {
+        const { workspace } = this.app;
+
+        let leaf: WorkspaceLeaf | null = null;
+        const leaves = workspace.getLeavesOfType(VIEW_TYPE_VAULT_AGENT_CHAT);
+
+        if (leaves.length > 0) {
+            leaf = leaves[0];
+        } else {
+            leaf = workspace.getRightLeaf(false);
+        }
+
+        if (leaf) {
+            await leaf.setViewState({ type: VIEW_TYPE_VAULT_AGENT_CHAT });
+        }
+    }
+    private handleFileSelection(): void {
+        const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView);
+        
+        if (activeLeaf && activeLeaf.file) {
+            const file = activeLeaf.file;
+            const fileName = file.basename + '.md';
+            const filePath = file.path;
+
+            // 채팅 뷰에 파일 정보 전달
+            const chatView = this.getChatView();
+            if (chatView) {
+                chatView.setActiveFile(fileName, filePath);
+            }
+        }
+    }
+
+    /**
+     * 채팅 뷰 인스턴스 반환
+     */
+    private getChatView(): ChatView | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_VAULT_AGENT_CHAT);
+        if (leaves.length > 0) {
+            const leaf = leaves[0];
+            if (leaf.view instanceof ChatView) {
+                return leaf.view;
+            }
+        }
+        return null;
+    }
+}

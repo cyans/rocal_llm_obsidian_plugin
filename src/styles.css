@@ -1,0 +1,1248 @@
+/**
+ * Vault Agent Plugin Styles - Obsidian Copilot Inspired Design
+ * @MX:SPEC: SPEC-PLUGIN-001
+ * @MX:NOTE: Obsidian Copilot 스타일 통합 - 미니멀, 컴팩트, 테마 호환
+ */
+
+/* ========================================
+   Design Token Variables (Obsidian Copilot Style)
+   ======================================== */
+:root {
+    --va-radius-xl: 16px;
+    --va-radius-lg: 12px;
+    --va-radius-md: 8px;
+    --va-radius-sm: 4px;
+    --va-font-ui-smaller: 11px;
+    --va-font-ui-small: 13px;
+    --va-transition-fast: 0.15s ease;
+    --va-transition-normal: 0.2s ease;
+}
+
+/* ========================================
+   Chat Container - Fixed Layout
+   ======================================== */
+.vault-agent-chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--background-primary);
+    position: relative;
+}
+
+/* ========================================
+   Chat Header - Fixed Top
+   ======================================== */
+.chat-header {
+    flex-shrink: 0;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background-color: var(--background-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+}
+
+.chat-header-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-normal);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chat-header-title::before {
+    content: '🤖';
+    font-size: 20px;
+}
+
+.chat-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-header-button {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
+    background-color: var(--background-secondary);
+    color: var(--text-normal);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chat-header-button:hover {
+    background-color: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+}
+
+.chat-header-button.active {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+}
+
+/* ========================================
+   Chat Messages - Scrollable Area
+   ======================================== */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Custom Scrollbar */
+.chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: rgba(125, 135, 150, 0.1);
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background-color: var(--background-modifier-border);
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-faint);
+}
+
+/* ========================================
+   Message Bubbles - Obsidian Copilot Style
+   ======================================== */
+.chat-message {
+    display: flex;
+    padding: 0;
+    border-radius: var(--va-radius-md);
+    position: relative;
+    margin-bottom: 10px;
+    animation: messageSlideIn var(--va-transition-normal) ease-out;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* User Message - Obsidian Copilot Minimal Style */
+.chat-message.user {
+    margin-left: 0;
+    margin-right: 16px;
+}
+
+.chat-message.user .message-bubble {
+    background: color-mix(in srgb, var(--interactive-accent) 8%, transparent);
+    color: var(--text-normal);
+    padding: 7px 10px;
+    border-radius: 4px;
+    max-width: min(100%, 860px);
+    word-wrap: break-word;
+    border: none;
+    border-left: 2px solid var(--interactive-accent);
+}
+/* Assistant Message - Obsidian Copilot Minimal Style */
+.chat-message.assistant .message-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--background-modifier-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.chat-message.assistant .message-bubble {
+    background: color-mix(in srgb, var(--background-modifier-border) 30%, transparent);
+    color: var(--text-normal);
+    padding: 7px 10px;
+    border-radius: 4px;
+    max-width: min(100%, 860px);
+    border: none;
+    border-left: 2px solid var(--text-muted);
+    word-wrap: break-word;
+}
+
+/* System/Tool Message - Full Width */
+.chat-message.system,
+.chat-message.tool {
+    margin-left: 5%;
+    margin-right: 5%;
+}
+
+.chat-message.system .message-bubble,
+.chat-message.tool .message-bubble {
+    background-color: var(--background-modifier-border);
+    color: var(--text-muted);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    border-left: 3px solid var(--text-accent);
+}
+
+/* ========================================
+   Message Content Styling (Obsidian Copilot Style)
+   ======================================== */
+.message-bubble {
+    padding: 0;
+    line-height: 1.3 !important;
+    position: relative;
+    font-size: 14px;
+}
+
+.message-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+    -webkit-user-select: text;
+    overflow-wrap: break-word;
+    line-height: 1.38;
+}
+
+.message-content p {
+    margin-top: 0;
+    margin-bottom: 0.18em;
+}
+
+/* Code blocks - Obsidian Copilot style */
+.message-content pre {
+    background-color: color-mix(in srgb, var(--background-modifier-border) 20%, transparent);
+    border-radius: 6px;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+    position: relative;
+    margin: 6px 0;
+}
+
+.message-content pre code {
+    background-color: transparent;
+    padding: 0;
+    color: var(--code-normal, var(--text-normal));
+    line-height: 1.4 !important;
+    display: block;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Copy button for code blocks - Minimal Style */
+.message-content pre .copy-code-button {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    padding: 4px 8px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: var(--va-radius-sm);
+    font-size: var(--va-font-ui-smaller);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity var(--va-transition-fast);
+}
+
+.message-content pre:hover .copy-code-button {
+    opacity: 1;
+}
+
+.message-content pre .copy-code-button:hover {
+    color: var(--text-normal);
+}
+
+/* Inline code */
+.message-content code {
+    background-color: color-mix(in srgb, var(--background-modifier-border) 18%, transparent);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--code-normal, var(--text-normal));
+}
+
+/* Lists */
+.message-content ul,
+.message-content ol {
+    padding-left: 18px;
+    margin: 6px 0 6px 16px;
+}
+
+/* Message Header */
+.message-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.message-role-label {
+    padding: 2px 6px;
+    border-radius: 3px;
+    opacity: 0.7;
+}
+
+.chat-message.user .message-role-label {
+    color: var(--interactive-accent);
+    background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+
+.chat-message.assistant .message-role-label {
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+}
+
+.chat-message.system .message-role-label {
+    color: var(--text-accent);
+    background: color-mix(in srgb, var(--text-accent) 14%, transparent);
+}
+
+/* Copy Button */
+.copy-button {
+    font-size: var(--va-font-ui-smaller);
+    padding: 4px 10px;
+    border-radius: var(--va-radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all var(--va-transition-normal);
+    color: inherit;
+}
+
+.copy-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Tool Badge */
+.chat-tool-badge {
+    margin-top: 8px;
+    padding: 4px 10px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+/* Debug Mode */
+.chat-debug {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: rgba(255, 200, 0, 0.1);
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: var(--font-monospace);
+    border: 1px dashed rgba(255, 200, 0, 0.3);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* ========================================
+   Typing Indicator Animation
+   ======================================== */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    background: transparent;
+    border-radius: 4px;
+    margin-left: 0;
+    margin-bottom: 10px;
+    width: fit-content;
+    animation: messageFadeIn 0.2s ease-out;
+}
+
+.typing-indicator .dot {
+    width: 6px;
+    height: 6px;
+    background-color: var(--text-faint);
+    border-radius: 50%;
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+}
+
+.typing-indicator .dot:nth-child(1) { animation-delay: 0ms; }
+.typing-indicator .dot:nth-child(2) { animation-delay: 200ms; }
+.typing-indicator .dot:nth-child(3) { animation-delay: 400ms; }
+
+/* ========================================
+   Message Entrance Animation
+   ======================================== */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chat-message {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* ========================================
+   Modern Input Area (Obsidian Copilot Style)
+   ======================================== */
+.chat-input-container {
+    flex-shrink: 0;
+    padding: var(--size-4-2);
+    background-color: var(--background-primary);
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Modern Textarea */
+.chat-input {
+    width: 100%;
+    min-height: 44px;
+    max-height: 150px;
+    padding: var(--size-4-2) var(--size-4-3);
+    border: none;
+    border-radius: 4px;
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-family: var(--font-interface);
+    font-size: 14px;
+    line-height: 1.5;
+    resize: none;
+    box-sizing: border-box;
+}
+
+.chat-input:focus {
+    outline: none;
+}
+
+.chat-input::placeholder {
+    color: var(--text-faint);
+    opacity: 0.6;
+}
+
+/* Button Container */
+.chat-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.left-buttons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Modern Buttons */
+.chat-send-container {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+button.mod-cta,
+.chat-send-button {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    background: none !important;
+    color: var(--text-muted);
+    border-radius: 4px;
+    border: none !important;
+    font-weight: 500;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+    box-shadow: none !important;
+}
+
+button.mod-cta:hover,
+.chat-send-button:hover {
+    color: var(--text-normal);
+    opacity: 1;
+}
+
+button.mod-cta:disabled,
+.chat-send-button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Utility Buttons */
+.left-buttons button {
+    padding: 0;
+    background: none !important;
+    color: var(--text-muted);
+    border-radius: 0;
+    border: none !important;
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.left-buttons button:hover {
+    color: var(--text-normal);
+    opacity: 1;
+}
+
+/* ========================================
+   Dark Mode Optimizations - Better Message Contrast
+   ======================================== */
+.theme-dark .chat-message.user .message-bubble {
+    background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+    border-left: 2px solid var(--interactive-accent);
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+}
+
+.theme-dark .chat-message.assistant .message-bubble {
+    background: color-mix(in srgb, var(--background-modifier-border) 30%, transparent);
+    border-left: 2px solid var(--text-muted);
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+}
+
+.theme-dark .typing-indicator {
+    background: transparent;
+    border: none;
+}
+
+.theme-dark .chat-input {
+    background-color: var(--background-secondary);
+}
+
+/* ========================================
+   Scrollbar Styling
+   ======================================== */
+.chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: rgba(125, 135, 150, 0.1);
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background-color: var(--background-modifier-border);
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-muted);
+}
+
+/* ========================================
+   Tool Status Banner (Modern)
+   ======================================== */
+.tool-status-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    animation: slideIn 0.3s ease-out;
+}
+
+.tool-status-banner.running {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid var(--text-accent);
+}
+
+.tool-status-banner.completed {
+    background-color: rgba(34, 197, 94, 0.1);
+    border-left: 3px solid var(--text-success);
+}
+
+.tool-status-banner.failed {
+    background-color: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid var(--text-error);
+}
+
+.tool-name {
+    font-weight: 600;
+}
+
+.status-text {
+    color: var(--text-muted);
+}
+
+/* ========================================
+   Responsive Design
+   ======================================== */
+@media (max-width: 600px) {
+    .chat-message.user {
+        margin-left: 0;
+    }
+
+    .chat-message.assistant {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .chat-input-container {
+        padding: 12px;
+    }
+
+    .chat-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .left-buttons {
+        order: 2;
+    }
+
+    .chat-send-container {
+        order: 1;
+    }
+}
+
+/* ========================================
+   Legacy Tool Toggles (Preserved)
+   ======================================== */
+.tool-toggles {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tool-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    background-color: var(--background-modifier-border);
+}
+
+.tool-badge.enabled {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: var(--text-success);
+}
+
+.tool-badge.disabled {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* ========================================
+   Legacy Support (Backward Compatibility)
+   ======================================== */
+.chat-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px 16px;
+    border: 2px solid var(--background-modifier-border);
+    border-radius: 12px;
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-family: var(--font-interface);
+    font-size: 14px;
+    resize: vertical;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.chat-textarea:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Chat Input */
+.chat-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.chat-textarea {
+    min-height: 80px;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--background-modifier-border);
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-family: var(--font-interface);
+    resize: vertical;
+}
+
+.chat-textarea:focus {
+    border-color: var(--interactive-accent);
+    outline: none;
+}
+
+.chat-send-button {
+    align-self: flex-end;
+    padding: 0.5rem 1.5rem;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-radius: 0.25rem;
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.chat-send-button:hover {
+    background-color: var(--interactive-accent-hover);
+}
+
+/* Tool Toggles */
+.tool-toggles {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tool-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    background-color: var(--background-modifier-border);
+}
+
+.tool-badge.enabled {
+    background-color: var(--background-modifier-success);
+    color: var(--text-success);
+}
+
+.tool-badge.disabled {
+    background-color: var(--background-modifier-error);
+    color: var(--text-error);
+    opacity: 0.5;
+}
+
+.tool-toggles-container {
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.tool-toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.tool-icon {
+    font-size: 1.2rem;
+}
+
+/* Tool Status Banner */
+.tool-status-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.tool-status-banner.running {
+    background-color: var(--background-modifier-info);
+    border-left: 3px solid var(--text-info);
+}
+
+.tool-status-banner.completed {
+    background-color: var(--background-modifier-success);
+    border-left: 3px solid var(--text-success);
+}
+
+.tool-status-banner.failed {
+    background-color: var(--background-modifier-error);
+    border-left: 3px solid var(--text-error);
+}
+
+.tool-name {
+    font-weight: 600;
+}
+
+.status-text {
+    color: var(--text-muted);
+}
+
+.result-preview {
+    margin-top: 0.25rem;
+    padding: 0.25rem;
+    background-color: var(--background-primary);
+    border-radius: 0.25rem;
+    font-family: var(--font-monospace);
+    font-size: 0.75rem;
+}
+
+.error-message {
+    margin-top: 0.25rem;
+    padding: 0.25rem;
+    background-color: var(--background-error);
+    border-radius: 0.25rem;
+    color: var(--text-error);
+}
+
+/* ========================================
+   Message Actions (Obsidian Copilot Style)
+   ======================================== */
+/* Message Actions - Obsidian Copilot Hover-Only Style */
+.message-actions {
+    display: flex;
+    opacity: 0;
+    margin-top: 4px;
+    justify-content: flex-end;
+    transition: opacity var(--va-transition-fast);
+}
+
+.chat-message:hover .message-actions {
+    opacity: 1;
+}
+
+/* Action Button - Minimal Style */
+.message-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--text-muted);
+    font-size: var(--va-font-ui-smaller);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity var(--va-transition-fast);
+    border-radius: var(--va-radius-sm);
+}
+
+.message-action-btn:hover {
+    color: var(--text-normal);
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* ========================================
+   Context Badges (Obsidian Copilot Style)
+   ======================================== */
+.note-badge {
+    font-size: var(--va-font-ui-smaller);
+    padding: 0 4px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.context-note .note-name {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+/* ========================================
+   Icon Buttons (Obsidian Copilot Style)
+   ======================================== */
+.chat-icon-button {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0;
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--text-muted);
+    font-size: var(--va-font-ui-smaller);
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity var(--va-transition-fast);
+}
+
+.chat-icon-button:hover {
+    background: none !important;
+    color: var(--text-normal);
+    opacity: 1;
+}
+
+/* ========================================
+   Copilot Spinner Animation (Obsidian Copilot Style)
+   ======================================== */
+.copilot-spinner {
+    display: block;
+}
+
+.copilot-spinner-dot {
+    fill: var(--text-faint);
+}
+
+.copilot-spinner-dot-0 {
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+    animation-delay: 0ms;
+}
+
+.copilot-spinner-dot-1 {
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+    animation-delay: 155ms;
+}
+
+.copilot-spinner-dot-2 {
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+    animation-delay: 310ms;
+}
+
+.copilot-spinner-dot-3 {
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+    animation-delay: 465ms;
+}
+
+.copilot-spinner-dot-4 {
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+    animation-delay: 620ms;
+}
+
+/* ========================================
+   Copilot-Like Layout Refinement
+   ======================================== */
+.vault-agent-chat-container {
+    gap: 0;
+}
+
+.chat-relevant-notes {
+    flex-shrink: 0;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+}
+
+.chat-relevant-notes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.chat-relevant-notes-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.chat-relevant-notes-refresh {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-faint);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.chat-relevant-notes-body {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 2px 0 0;
+}
+
+.chat-messages {
+    padding: 14px 14px 10px;
+    background: var(--background-primary);
+}
+
+.chat-message {
+    margin-bottom: 14px;
+}
+
+.chat-message.user,
+.chat-message.assistant,
+.chat-message.system {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.chat-message .message-bubble {
+    width: 100%;
+    max-width: 100%;
+    padding: 12px 14px 10px;
+    border-radius: 10px;
+    border-left-width: 0;
+    border: 1px solid var(--background-modifier-border);
+    box-shadow: none;
+}
+
+.chat-message.user .message-bubble {
+    background: color-mix(in srgb, var(--background-secondary) 78%, transparent);
+}
+
+.chat-message.assistant .message-bubble {
+    background: transparent;
+    border-color: transparent;
+    padding: 0 0 2px;
+}
+
+.chat-message.assistant .message-content {
+    padding-left: 0;
+}
+
+.chat-message.system .message-bubble {
+    background: color-mix(in srgb, var(--background-modifier-border) 18%, transparent);
+    border-color: color-mix(in srgb, var(--background-modifier-border) 65%, transparent);
+}
+
+.message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.message-role-label {
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    opacity: 0.9;
+}
+
+.message-timestamp {
+    font-size: 11px;
+    color: var(--text-faint);
+    white-space: nowrap;
+}
+
+.chat-message.user .message-role-label,
+.chat-message.assistant .message-role-label,
+.chat-message.system .message-role-label {
+    color: var(--text-muted);
+    background: none;
+}
+
+.message-content {
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.message-content p {
+    margin: 0 0 0.28em !important;
+    line-height: 1.45 !important;
+}
+
+.message-content p:last-child {
+    margin-bottom: 0 !important;
+}
+
+.message-content ul,
+.message-content ol {
+    margin: 8px 0 8px 18px;
+    padding-left: 16px;
+}
+
+.message-content li + li {
+    margin-top: 2px;
+}
+
+.message-content pre {
+    margin: 8px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--background-secondary) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+}
+
+.message-content code {
+    background: color-mix(in srgb, var(--background-secondary) 76%, transparent);
+    border: 1px solid color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
+    padding: 1px 5px;
+    border-radius: 5px;
+}
+
+.message-actions {
+    justify-content: flex-end;
+    gap: 2px;
+    margin-top: 4px;
+    padding-right: 2px;
+}
+
+.chat-input-container {
+    padding: 10px 12px 12px;
+    background: var(--background-primary);
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.chat-composer {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 12px;
+    background: var(--background-primary);
+    padding: 10px 10px 8px;
+}
+
+.file-badge-container {
+    min-height: 24px;
+    margin-bottom: 6px;
+}
+
+.chat-actions {
+    margin-bottom: 4px;
+}
+
+.chat-input {
+    min-height: 84px;
+    max-height: 220px;
+    padding: 6px 4px 8px;
+    background: transparent;
+    line-height: 1.45;
+}
+
+.chat-composer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.chat-composer-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.chat-composer-model {
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.chat-composer-hint {
+    color: var(--text-faint);
+}
+
+.chat-send-container {
+    margin-top: 0;
+}
+
+.chat-send-button {
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--text-normal);
+    opacity: 0.8;
+}
+
+.typing-indicator {
+    padding: 4px 0 10px;
+    margin-bottom: 0;
+}
+
+.theme-dark .chat-relevant-notes,
+.theme-dark .chat-input-container,
+.theme-dark .chat-composer {
+    background: var(--background-primary);
+}
+
+.theme-dark .chat-message.user .message-bubble {
+    background: color-mix(in srgb, var(--background-secondary) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--background-modifier-border) 80%, transparent);
+}
+
+.theme-dark .chat-message.assistant .message-bubble {
+    background: transparent;
+    border-color: transparent;
+}
+
+@media (max-width: 600px) {
+    .chat-messages {
+        padding: 12px 10px 8px;
+    }
+
+    .chat-relevant-notes,
+    .chat-input-container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .chat-composer-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .chat-send-container {
+        justify-content: flex-end;
+    }
+}
+
+.copilot-spinner-dot-5 {
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+    animation-delay: 775ms;
+}
+
+.copilot-spinner-dot-6 {
+    animation: copilot-dot-chase 1.4s ease-in-out infinite;
+    animation-delay: 930ms;
+}
+
+@keyframes copilot-dot-chase {
+    0% {
+        fill: var(--text-normal);
+        opacity: 1;
+    }
+    11% {
+        fill: var(--text-normal);
+        opacity: 1;
+    }
+    22% {
+        fill: var(--text-normal);
+        opacity: 0.85;
+    }
+    33% {
+        fill: var(--text-muted);
+        opacity: 0.6;
+    }
+    44% {
+        fill: var(--text-faint);
+        opacity: 0.35;
+    }
+    55%, 100% {
+        fill: var(--text-faint);
+        opacity: 0.2;
+    }
+}
+
+/* Icon Container for SVG Icons */
+.icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+}
+
+.icon-container svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 1.5px;
+}

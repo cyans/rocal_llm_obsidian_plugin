@@ -1,0 +1,950 @@
+/**
+ * Vault Agent Plugin Styles
+ * Obsidian Copilot 스타일 기반
+ * @MX:SPEC: SPEC-PLUGIN-001
+ */
+
+/* ============================================
+   Tailwind CSS 기반 스타일 (Obsidian Copilot 호환)
+   ============================================ */
+
+/* 팝오버 z-index 오버라이드 */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+/* ============================================
+   채팅 컨테이너
+   ============================================ */
+.vault-agent-chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 모바일 안전 영역 패딩 */
+.workspace-leaf-content[data-type="vault-agent-chat-view"] .view-content {
+  padding-bottom: max(
+    calc(var(--safe-area-inset-bottom, 0px) + var(--size-4-1)),
+    var(--size-4-8)
+  ) !important;
+}
+
+/* ============================================
+   메시지 영역
+   ============================================ */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* 메시지 래퍼 */
+.chat-message {
+  margin-bottom: 0;
+  display: flex;
+  padding: 0;
+  border-radius: 4px;
+  position: relative;
+  animation: messageFadeIn 0.2s ease-out;
+}
+
+/* 메시지 콘텐츠 (Copilot 스타일) */
+.message-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.3 !important;
+}
+
+.message-content p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* 마크다운 테이블 스타일 */
+.message-content table {
+  border-collapse: collapse;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.message-content th,
+.message-content td {
+  padding: var(--size-2-2) var(--size-4-2);
+  border: var(--table-border-width) solid var(--table-border-color);
+}
+
+.message-content th {
+  font-weight: var(--table-header-weight);
+  background-color: var(--table-header-background);
+}
+
+/* 인라인 코드 스타일 */
+.message-content code {
+  background-color: var(--code-background);
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: var(--code-normal);
+}
+
+/* 코드 블록 스타일 */
+.message-content pre {
+  background-color: var(--background-primary-alt);
+  border-radius: 4px;
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+  position: relative;
+}
+
+.message-content pre code {
+  background-color: transparent;
+  padding: 0;
+  color: var(--code-normal);
+  line-height: 1.5 !important;
+  display: block;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 코드 복사 버튼 */
+.message-content pre .copy-code-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 4px 8px;
+  color: var(--text-muted);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0 4px 0 4px;
+  font-size: 0.8em;
+  transition: all 0.1s ease;
+  opacity: 0;
+}
+
+.message-content pre:hover .copy-code-button {
+  opacity: 1;
+}
+
+.message-content pre .copy-code-button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* 리스트 스타일 */
+.message-content ul,
+.message-content ol {
+  padding-left: 20px;
+  margin: 10px;
+}
+
+/* ============================================
+   메시지 버블 (Copilot 미니멀 스타일)
+   ============================================ */
+.message-bubble {
+  padding: 0;
+  border-radius: 4px;
+  line-height: 1.3;
+  font-size: 14px;
+  border: none;
+  background: transparent;
+}
+
+/* 메시지 헤더 (역할 라벨) */
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.message-role-label {
+  padding: 2px 6px;
+  border-radius: 3px;
+  opacity: 0.7;
+}
+
+/* 사용자 메시지 - 구분되는 배경 */
+.chat-message.user {
+  margin-left: 0;
+  margin-right: 24px;
+}
+
+.chat-message.user .message-bubble {
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--interactive-accent) 8%, transparent);
+  border-left: 2px solid var(--interactive-accent);
+  padding: 8px 12px;
+  border-radius: 4px;
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.chat-message.user .message-role-label {
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+
+/* 어시스턴트 메시지 - 구분되는 배경 */
+.chat-message.assistant {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.chat-message.assistant .message-bubble {
+  color: var(--text-normal);
+  background: color-mix(in srgb, var(--background-modifier-border) 30%, transparent);
+  border-left: 2px solid var(--text-muted);
+  padding: 8px 12px;
+  border-radius: 4px;
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.chat-message.assistant .message-role-label {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+}
+
+/* 시스템/툴 메시지 */
+.chat-message.system .message-bubble {
+  color: var(--text-muted);
+  font-size: 12px;
+  align-self: center;
+  max-width: 90%;
+}
+
+/* ============================================
+   메시지 액션 버튼 (Copilot 스타일)
+   ============================================ */
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.chat-message:hover .message-actions {
+  opacity: 1;
+}
+
+.chat-icon-button.clickable-icon,
+.message-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.chat-icon-button.clickable-icon:hover,
+.message-action-btn:hover {
+  background: none !important;
+  color: var(--text-normal);
+  opacity: 1;
+}
+
+/* ============================================
+   Copilot 스피너 애니메이션 (십자 패턴)
+   ============================================ */
+.copilot-spinner {
+  display: block;
+}
+
+.copilot-spinner-dot {
+  fill: var(--text-faint);
+}
+
+.copilot-spinner-dot-0 { animation: copilot-dot-chase 1.4s ease-in-out infinite; animation-delay: 0ms; }
+.copilot-spinner-dot-1 { animation: copilot-dot-chase 1.4s ease-in-out infinite; animation-delay: 155ms; }
+.copilot-spinner-dot-2 { animation: copilot-dot-chase 1.4s ease-in-out infinite; animation-delay: 310ms; }
+.copilot-spinner-dot-3 { animation: copilot-dot-chase 1.4s ease-in-out infinite; animation-delay: 465ms; }
+.copilot-spinner-dot-4 { animation: copilot-dot-chase 1.4s ease-in-out infinite; animation-delay: 620ms; }
+.copilot-spinner-dot-5 { animation: copilot-dot-chase 1.4s ease-in-out infinite; animation-delay: 775ms; }
+.copilot-spinner-dot-6 { animation: copilot-dot-chase 1.4s ease-in-out infinite; animation-delay: 930ms; }
+
+@keyframes copilot-dot-chase {
+  0% { fill: var(--text-normal); opacity: 1; }
+  11% { fill: var(--text-normal); opacity: 1; }
+  22% { fill: var(--text-normal); opacity: 0.85; }
+  33% { fill: var(--text-muted); opacity: 0.6; }
+  44% { fill: var(--text-faint); opacity: 0.35; }
+  55%, 100% { fill: var(--text-faint); opacity: 0.2; }
+}
+
+/* ============================================
+   타이핑 인디케이터 (Copilot 스타일)
+   ============================================ */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border-radius: 4px;
+  width: fit-content;
+  animation: messageFadeIn 0.2s ease-out;
+}
+
+.typing-indicator .dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--text-faint);
+  border-radius: 50%;
+  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+}
+
+.typing-indicator .dot:nth-child(1) { animation-delay: 0ms; }
+.typing-indicator .dot:nth-child(2) { animation-delay: 200ms; }
+.typing-indicator .dot:nth-child(3) { animation-delay: 400ms; }
+
+.typing-indicator .status-text {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+/* ============================================
+   입력 영역 (Copilot 스타일)
+   ============================================ */
+.chat-input-container {
+  flex-shrink: 0;
+  padding: var(--size-4-2);
+  border-top: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+}
+
+/* 버튼 컨테이너 */
+.chat-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.left-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Copilot 버튼 스타일 (투명, 미니멀) */
+.chat-actions button,
+.chat-icon-button,
+.model-select-button,
+.submit-button,
+.chain-select-button {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.chat-actions button:hover,
+.chat-icon-button:hover,
+.model-select-button:hover,
+.submit-button:hover,
+.chain-select-button:hover {
+  background: none !important;
+  color: var(--text-normal);
+  opacity: 1;
+}
+
+.submit-button svg,
+.model-select-button svg,
+.chain-select-button svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* 취소 버튼 플래시 애니메이션 */
+.submit-button.cancel {
+  opacity: 0.5;
+  padding: 4px;
+  border-radius: 4px;
+  animation: flash 2s infinite;
+}
+
+.submit-button.cancel:hover {
+  opacity: 1;
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* 입력창 (Copilot 스타일) */
+.chat-input {
+  width: 100%;
+  min-height: 44px;
+  max-height: 150px;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: none;
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.chat-input:focus {
+  outline: none;
+}
+
+.chat-input::placeholder {
+  color: var(--text-faint);
+}
+
+/* 전송 버튼 컨테이너 */
+.chat-send-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* 전송 버튼 (Copilot 미니멀 스타일) */
+.chat-send-button {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.chat-send-button:hover:not(:disabled) {
+  color: var(--text-normal);
+  opacity: 1;
+}
+
+.chat-send-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   컨텍스트 배지 (Copilot 스타일)
+   ============================================ */
+.chat-context-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border-bottom: none;
+  flex: 1;
+}
+
+.note-badge {
+  font-size: 10px;
+  padding: 0 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.remove-note {
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0.5;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.remove-note:hover {
+  opacity: 1;
+}
+
+.context-note .note-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.context-note.url .note-badge {
+  background-color: var(--interactive-accent);
+}
+
+.context-note.url .note-name {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-note .note-badge.pdf {
+  background-color: var(--background-modifier-error);
+}
+
+/* ============================================
+   툴 배지 (Copilot 스타일)
+   ============================================ */
+.chat-tool-badge {
+  font-size: 10px;
+  padding: 0 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tool-call-container {
+  margin: 0.75rem 0;
+}
+
+/* ============================================
+   메시지 편집 UI
+   ============================================ */
+.message-edit-container {
+  margin-top: 8px;
+}
+
+.message-edit-textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  resize: vertical;
+  overflow-y: hidden;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.message-edit-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.message-edit-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.message-edit-save,
+.message-edit-cancel {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.message-edit-save {
+  color: var(--interactive-accent);
+}
+
+.message-edit-cancel {
+  color: var(--text-muted);
+}
+
+.message-edit-save:hover,
+.message-edit-cancel:hover {
+  opacity: 1;
+}
+
+/* ============================================
+   에이전트 추론 블록 (Copilot 스타일)
+   ============================================ */
+.agent-reasoning-block {
+  margin: 4px 0 8px;
+  padding: 0;
+  font-size: var(--font-ui-small);
+  width: 100%;
+}
+
+.agent-reasoning-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+
+.agent-reasoning-header:hover:not(:disabled) {
+  color: var(--text-muted);
+}
+
+.agent-reasoning-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.agent-reasoning-title {
+  font-weight: var(--font-medium);
+}
+
+.agent-reasoning-timer {
+  color: var(--text-faint);
+}
+
+.agent-reasoning-steps {
+  margin: 8px 0 0 20px;
+  padding: 0;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-reasoning-step {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+  font-size: var(--font-ui-smaller);
+}
+
+/* ============================================
+   소스 확장 영역 (Copilot 스타일)
+   ============================================ */
+.copilot-sources {
+  margin-top: var(--size-4-1);
+  padding: calc(var(--size-4-2) / 2) var(--size-4-2);
+  border-radius: var(--radius-s);
+  border: 1px solid color-mix(in srgb, var(--background-modifier-border) 70%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--background-primary) 94%,
+    var(--background-modifier-border) 6%
+  );
+  width: min(100%, 32rem);
+}
+
+.copilot-sources__summary {
+  font-size: var(--font-ui-smaller);
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  padding: calc(var(--size-4-2) / 4) 0;
+  padding-left: var(--size-4-2);
+  padding-right: var(--size-4-2);
+  margin: 0;
+}
+
+.copilot-sources__summary::-webkit-details-marker {
+  color: color-mix(in srgb, var(--text-muted) 80%, transparent);
+}
+
+.copilot-sources__summary::after {
+  content: ">";
+  font-size: var(--font-ui-smaller);
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  transition: transform 0.15s ease;
+}
+
+.copilot-sources[open] .copilot-sources__summary {
+  margin-bottom: calc(var(--size-4-2) / 2);
+}
+
+.copilot-sources[open] .copilot-sources__summary::after {
+  transform: rotate(90deg);
+}
+
+.copilot-sources__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  padding-left: var(--size-4-2);
+  padding-right: var(--size-4-2);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--size-4-2) / 2);
+  font-size: var(--font-ui-smaller);
+  color: color-mix(in srgb, var(--text-muted) 85%, transparent);
+}
+
+.copilot-sources__item {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: baseline;
+}
+
+.copilot-sources__index {
+  color: color-mix(in srgb, var(--text-muted) 65%, transparent);
+  font-weight: var(--font-medium);
+  min-width: var(--size-4-3);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.copilot-sources__text {
+  color: color-mix(in srgb, var(--text-muted) 90%, transparent);
+  line-height: 1.4;
+}
+
+.copilot-sources__text a {
+  color: var(--text-accent);
+}
+
+/* ============================================
+   디버그 영역
+   ============================================ */
+.chat-debug {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+/* ============================================
+   이미지 미리보기 (Copilot 스타일)
+   ============================================ */
+.selected-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.image-preview-container {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.selected-image-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.remove-image-button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--background-modifier-error);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+
+.remove-image-button:hover {
+  background: var(--background-modifier-error-hover);
+}
+
+.message-image-content {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px 0;
+}
+
+.chat-message-image {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+/* ============================================
+   툴팁 (Copilot 스타일)
+   ============================================ */
+.tooltip-text {
+  max-width: 400px;
+  background-color: var(--background-secondary);
+  color: var(--text-normal);
+  text-align: center;
+  border-radius: 5px;
+  padding: 5px;
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+
+/* ============================================
+   애니메이션
+   ============================================ */
+@keyframes messageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes messageFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* ============================================
+   스크롤바 스타일
+   ============================================ */
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background-color: var(--background-modifier-border);
+  border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-faint);
+}
+
+/* ============================================
+   모바일 반응형 스타일
+   ============================================ */
+@media screen and (max-width: 768px) {
+  .button-container {
+    gap: 0.5rem;
+    padding: 0 12px;
+  }
+
+  .button-container .mod-cta {
+    margin: 12px 0;
+    font-size: 0.9rem;
+    padding: 6px 12px;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .tool-call-container {
+    margin: 0.5rem 0;
+  }
+
+  .agent-reasoning-block {
+    margin: 2px 0 6px;
+  }
+
+  .agent-reasoning-steps {
+    margin: 6px 0 0 16px;
+    gap: 4px;
+  }
+}
+
+/* 데스크톱 전용 */
+.desktop-only {
+  display: table;
+}
+
+.mobile-only {
+  display: none;
+}
+
+/* ============================================
+   아이콘 스케일러
+   ============================================ */
+.icon-scaler {
+  transform: scale(0.7);
+}
+
+.button-content {
+  display: flex;
+  align-items: center;
+}
+
+.button-content span {
+  font-size: 10px;
+}
+
+.button-content .icon-scaler {
+  width: 18px;
+  height: 18px;
+}
+
+/* ============================================
+   그라데이션 페이드 마스크
+   ============================================ */
+.copilot-fade-mask-bottom {
+  background: linear-gradient(to top, var(--background-primary), transparent);
+}

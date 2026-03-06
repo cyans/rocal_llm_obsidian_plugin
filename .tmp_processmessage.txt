@@ -1,0 +1,23 @@
+    async processMessage(userMessage: string, activeFilePath?: string | null): Promise<AgentResponse> {
+        this.iterationCount = 0;
+        const toolDefinitions = this.toolRegistry.getOpenAIToolDefinitions();
+        const allToolCalls: ToolCall[] = [];
+
+        // Build system prompt with tool definitions for better tool usage guidance
+        const systemPrompt = this.promptBuilder.buildSystemPrompt(toolDefinitions);
+
+        // Build initial messages
+        const messages: ChatMessage[] = [
+            { role: 'system', content: systemPrompt },
+            ...this.conversationHistory,
+            { role: 'user', content: userMessage }
+        ];
+
+        // Add file context if active file is selected
+        if (activeFilePath) {
+            const fileContent = await this.readFileContent(activeFilePath);
+            if (fileContent) {
+                messages[messages.length - 1].content = 
+                    `[참고 파일: ${activeFilePath}]\n\n${fileContent}\n\n---\n\n사용자 질문: ${userMessage}`;
+            }
+        }

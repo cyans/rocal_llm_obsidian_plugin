@@ -1,0 +1,17 @@
+
+    /**
+     * 파일 내용 읽기
+     */
+    private async readFileContent(filePath: string): Promise<string | null> {
+        try {
+            const file = this.app.vault.getAbstractFileByPath(filePath);
+            if (file instanceof TFile) {
+                return await this.app.vault.read(file);
+            }
+            return null;
+        } catch (error) {
+            console.warn('[AgentController] Failed to read file:', filePath, error);
+            return null;
+        }
+    }
+}
