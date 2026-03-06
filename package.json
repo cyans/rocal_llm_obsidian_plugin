@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI agent for Obsidian",
   "main": "main.js",
   "scripts": {
@@ -10,12 +10,17 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:integration": "INTEGRATION_TEST=1 jest __tests__/integration",
-    "version": "node version-bump.mjs && git add manifest.json versions.json",
-    "copy:styles": "cp src/styles.css .obsidian/plugins/vault-agent/styles.css"
+    "version": "node version-bump.mjs && git add manifest.json versions.json package.json",
+    "copy:styles": "cp src/styles.css .obsidian/plugins/vault-agent/styles.css",
+    "release:prepare": "npm run build && node release-assets.mjs"
   },
   "keywords": [],
-  "author": "cyan91",
+  "author": "cyans",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cyans/rocal_llm_obsidian_plugin.git"
+  },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",

@@ -2,7 +2,7 @@
 
 > 로컬 LLM을 활용한 Obsidian 볼트용 AI 에이전트 플러그인
 
-[![GitHub release](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/cyan91/obsidian-vault-agent)
+[![GitHub release](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/cyans/rocal_llm_obsidian_plugin)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
@@ -25,6 +25,7 @@ Obsidian Vault Agent Plugin은 Qwen 3.5와 같은 로컬 LLM을 사용하여 볼
 ### 요구사항
 
 - Obsidian Desktop App 1.5.0 이상
+- Obsidian Desktop App 1.12.0 이상 (Obsidian CLI 기반 기능을 사용할 경우)
 - 로컬 LLM 서버 (Ollama, vLLM, LM Studio 등)
 - Node.js 18.0+ (개발용)
 
@@ -32,14 +33,21 @@ Obsidian Vault Agent Plugin은 Qwen 3.5와 같은 로컬 LLM을 사용하여 볼
 
 1. 릴리스 페이지에서 `main.js`, `manifest.json`, `styles.css` 다운로드
 2. Obsidian 설정 → 플러그인 탭에서 "폴더 열기"
-3. 플러그인 파일을 볼트의 `.obsidian/plugins/obsidian-vault-agent/` 폴더에 복사
+3. 플러그인 파일을 볼트의 `.obsidian/plugins/vault-agent/` 폴더에 복사
 4. 플러그인 활성화
+
+### BRAT 설치
+
+1. Obsidian에서 `BRAT` 플러그인을 설치하고 활성화
+2. BRAT 설정에서 `Add Beta plugin` 선택
+3. 저장소 주소로 `cyans/rocal_llm_obsidian_plugin` 입력
+4. 설치 후 `Vault Agent`를 활성화
 
 ### 개발 버전 설치
 
 ```bash
-git clone https://github.com/cyan91/obsidian-vault-agent.git
-cd obsidian-vault-agent
+git clone https://github.com/cyans/rocal_llm_obsidian_plugin.git
+cd rocal_llm_obsidian_plugin
 npm install
 npm run build
 ```
@@ -66,7 +74,7 @@ cp styles.css ~/Library/Application\ Support/obsidian/plugins/vault-agent/
 1. 플러그인 설정 열기 (Ctrl/Cmd + ,)
 2. "LLM 서버" 섹션에서 다음을 설정:
    - **API URL**: 로컬 LLM 서버 주소 (기본값: `http://localhost:11434/v1`)
-   - **모델명**: 사용할 모델 (기본값: `qwen3.5:latest`)
+- **모델명**: 사용할 모델
    - **API 키**: 선택사항 (필요한 경우)
    - **Max Tokens**: 최대 토큰 수 (기본값: 4096)
    - **Temperature**: 생성 온도 (기본값: 0.7)
@@ -139,7 +147,7 @@ cp styles.css ~/Library/Application\ Support/obsidian/plugins/vault-agent/
     ├─ 일반 텍스트 → 사용자 표시
     └─ 도구 호출 → 도구 실행 → 결과 피드백 → LLM 재호출
                    ↑___________________|
-                   (최대 10회 반복)
+                   (최대 30회 반복)
 ```
 
 ### 도구 아키텍처
@@ -176,7 +184,7 @@ src/
 
 ```bash
 npm test          # 모든 테스트
-npm run coverage  # 커버리지 포함
+npm run test:coverage  # 커버리지 포함
 ```
 
 ### 빌드
@@ -189,7 +197,7 @@ npm run dev        # 개발 모드 (감시)
 ### 프로젝트 구조
 
 ```
-obsidian-vault-agent/
+rocal_llm_obsidian_plugin/
 ├── src/              # 소스 코드
 ├── __tests__/       # 테스트 코드
 ├── .moai/           # MoAI 설정 및 SPEC
@@ -257,8 +265,8 @@ MIT License - LICENSE 파일 참조
 
 ## 📞 지원
 
-- **이슈 트래킹**: [GitHub Issues](https://github.com/cyan91/obsidian-vault-agent/issues)
-- **문서**: [Wiki](https://github.com/cyan91/obsidian-vault-agent/wiki)
+- **이슈 트래킹**: [GitHub Issues](https://github.com/cyans/rocal_llm_obsidian_plugin/issues)
+- **문서**: 저장소 README 및 릴리스 노트 참고
 
 ---
 
