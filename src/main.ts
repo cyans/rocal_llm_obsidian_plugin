@@ -28,6 +28,9 @@ export default class VaultAgentPlugin extends Plugin {
         // Load settings
         await this.loadSettings();
 
+        // allowInsecureTls 활성 시 Electron 세션 TLS 인증서 검증 비활성화
+        this.configureElectronTls();
+
         // Initialize services
         this.llmService = new LLMService(this.settings);
         this.conversationManager = new ConversationManager();
@@ -81,6 +84,8 @@ export default class VaultAgentPlugin extends Plugin {
 
     async saveSettings() {
         await this.saveData(this.settings);
+        // 설정 변경 시에도 TLS 구성 재적용 (allowInsecureTls 토글 반영)
+        this.configureElectronTls();
         this.llmService?.updateSettings(this.settings);
         this.agentController?.setAgentMode(this.settings.agentMode);
         this.toolRegistry?.registerAllTools(this.settings, this.llmService);
@@ -118,6 +123,30 @@ export default class VaultAgentPlugin extends Plugin {
             if (chatView) {
                 chatView.setActiveFile(fileName, filePath);
             }
+        }
+    }
+
+    /**
+     * allowInsecureTls 설정 시 Electron 세션 레벨에서 TLS 인증서 검증 비활성화
+     * @MX:WARN: 자가 서명 인증서 허용 - 신뢰된 사설 네트워크에서만 사용
+     * @MX:REASON: 외부 기기(iPhone, Windows)에서 CA 설치 없이 HTTPS 연결 허용
+     */
+    private configureElectronTls(): void {
+        if (!this.settings.allowInsecureTls) return;
+
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const { session } = require('electron');
+            if (typeof session?.defaultSession?.setCertificateVerifyProc === 'function') {
+                session.defaultSession.setCertificateVerifyProc(
+                    (_req: unknown, callback: (result: number) => void) => {
+                        callback(0); // 0: 인증서 허용 (자가 서명 인증서 포함)
+                    }
+                );
+                console.log('[VaultAgent] TLS 인증서 검증 비활성화 (allowInsecureTls=true)');
+            }
+        } catch {
+            // Electron session API를 사용할 수 없는 환경 (모바일 등) - 무시하고 계속
         }
     }
 

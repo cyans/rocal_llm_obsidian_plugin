@@ -116,7 +116,8 @@ export class LLMService {
                 path: parsedUrl.pathname + parsedUrl.search,
                 method: (init?.method ?? 'GET').toUpperCase(),
                 headers: init?.headers as Record<string, string> | undefined,
-                rejectUnauthorized: false, // 자가 서명 인증서 허용
+                rejectUnauthorized: false,     // 인증서 체인 검증 비활성화
+                checkServerIdentity: () => undefined, // 호스트명 검증도 비활성화
             };
 
             const req = transport.request(options, (res) => {

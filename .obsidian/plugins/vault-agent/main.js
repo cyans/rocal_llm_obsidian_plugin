@@ -76,8 +76,10 @@ var LLMService = class {
         path: parsedUrl.pathname + parsedUrl.search,
         method: ((_a = init == null ? void 0 : init.method) != null ? _a : "GET").toUpperCase(),
         headers: init == null ? void 0 : init.headers,
-        rejectUnauthorized: false
-        // 자가 서명 인증서 허용
+        rejectUnauthorized: false,
+        // 인증서 체인 검증 비활성화
+        checkServerIdentity: () => void 0
+        // 호스트명 검증도 비활성화
       };
       const req = transport.request(options, (res) => {
         const chunks = [];
@@ -3554,6 +3556,7 @@ var VaultAgentPlugin = class extends import_obsidian5.Plugin {
   async onload() {
     console.log("Loading Vault Agent Plugin");
     await this.loadSettings();
+    this.configureElectronTls();
     this.llmService = new LLMService(this.settings);
     this.conversationManager = new ConversationManager();
     this.toolRegistry = new ToolRegistry(this.app);
@@ -3593,6 +3596,7 @@ var VaultAgentPlugin = class extends import_obsidian5.Plugin {
   async saveSettings() {
     var _a, _b, _c;
     await this.saveData(this.settings);
+    this.configureElectronTls();
     (_a = this.llmService) == null ? void 0 : _a.updateSettings(this.settings);
     (_b = this.agentController) == null ? void 0 : _b.setAgentMode(this.settings.agentMode);
     (_c = this.toolRegistry) == null ? void 0 : _c.registerAllTools(this.settings, this.llmService);
@@ -3623,6 +3627,28 @@ var VaultAgentPlugin = class extends import_obsidian5.Plugin {
       if (chatView) {
         chatView.setActiveFile(fileName, filePath);
       }
+    }
+  }
+  /**
+   * allowInsecureTls 설정 시 Electron 세션 레벨에서 TLS 인증서 검증 비활성화
+   * @MX:WARN: 자가 서명 인증서 허용 - 신뢰된 사설 네트워크에서만 사용
+   * @MX:REASON: 외부 기기(iPhone, Windows)에서 CA 설치 없이 HTTPS 연결 허용
+   */
+  configureElectronTls() {
+    var _a;
+    if (!this.settings.allowInsecureTls)
+      return;
+    try {
+      const { session } = require("electron");
+      if (typeof ((_a = session == null ? void 0 : session.defaultSession) == null ? void 0 : _a.setCertificateVerifyProc) === "function") {
+        session.defaultSession.setCertificateVerifyProc(
+          (_req, callback) => {
+            callback(0);
+          }
+        );
+        console.log("[VaultAgent] TLS \uC778\uC99D\uC11C \uAC80\uC99D \uBE44\uD65C\uC131\uD654 (allowInsecureTls=true)");
+      }
+    } catch (e) {
     }
   }
   /**
