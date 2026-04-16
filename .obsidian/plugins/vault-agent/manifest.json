@@ -1,9 +1,9 @@
 {
   "id": "vault-agent",
   "name": "Vault Agent",
-  "version": "0.2.0",
+  "version": "0.2.4",
   "minAppVersion": "1.5.0",
   "description": "AI agent for Obsidian with Qwen 3.5 - Vault search, LLM summarization, and more",
-  "author": "cyan91",
+  "author": "cyans",
   "isDesktopOnly": false
 }

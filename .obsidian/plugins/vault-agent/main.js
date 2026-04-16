@@ -66,55 +66,156 @@ var LLMService = class {
    */
   fetchInsecure(url, init) {
     return new Promise((resolve, reject) => {
-      var _a;
+      var _a, _b, _c;
       const parsedUrl = new URL(url);
       const isHttps = parsedUrl.protocol === "https:";
       const transport = isHttps ? https : http;
       const hostname = parsedUrl.hostname;
-      const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$|^\[.*\]$/.test(hostname);
+      let bodyBuffer = null;
+      if (init == null ? void 0 : init.body) {
+        if (typeof init.body === "string") {
+          bodyBuffer = Buffer.from(init.body, "utf-8");
+        } else if (Buffer.isBuffer(init.body)) {
+          bodyBuffer = init.body;
+        }
+      }
+      const mergedHeaders = {
+        ...init == null ? void 0 : init.headers
+      };
+      if (bodyBuffer) {
+        mergedHeaders["Content-Length"] = String(bodyBuffer.length);
+      }
+      if (!mergedHeaders["Connection"]) {
+        mergedHeaders["Connection"] = "close";
+      }
       const options = {
         hostname,
         port: parsedUrl.port || (isHttps ? 443 : 80),
         path: parsedUrl.pathname + parsedUrl.search,
         method: ((_a = init == null ? void 0 : init.method) != null ? _a : "GET").toUpperCase(),
-        headers: init == null ? void 0 : init.headers,
+        headers: mergedHeaders,
         rejectUnauthorized: false,
         // 인증서 체인 검증 비활성화
         checkServerIdentity: () => void 0,
         // 호스트명 검증도 비활성화
-        // IP 주소로 접속 시 Caddy의 tls internal 인증서(localhost 기준) 매칭을 위해
-        // SNI를 'localhost'로 오버라이드. 도메인 접속 시에는 원래 호스트명 사용.
-        servername: isIpAddress ? "localhost" : hostname
+        // allowInsecureTls 모드에서는 SNI를 항상 'localhost'로 고정.
+        // IP/DDNS 도메인 모두 Caddy의 localhost 인증서를 사용하도록 통일.
+        servername: "localhost",
+        // TLS 1.2로 고정: BoringSSL TLS 1.3 협상 시 일부 서버에서 internal_error 발생.
+        maxVersion: "TLSv1.2",
+        // @MX:WARN: Agent false로 연결 풀링 완전 비활성화.
+        // @MX:REASON: 기본 globalAgent가 keepalive 소켓을 재사용하는데,
+        //   외부 NAT/라우터가 idle 연결을 RST로 종료한 뒤 재사용 시 ECONNRESET 발생.
+        //   매 요청마다 새 TCP+TLS 핸드셰이크 수행하여 안정성 확보 (성능 손실 < 300ms).
+        agent: false
       };
+      const reqStart = Date.now();
+      const logPrefix = `[LLM][fetchInsecure] ${options.method} ${url}`;
+      console.log(
+        `${logPrefix} request start bodyBytes=${(_b = bodyBuffer == null ? void 0 : bodyBuffer.length) != null ? _b : 0} contentLength=${(_c = mergedHeaders["Content-Length"]) != null ? _c : "(none)"} connection=${mergedHeaders["Connection"]}`
+      );
       const req = transport.request(options, (res) => {
         const chunks = [];
-        res.on("data", (chunk) => chunks.push(chunk));
+        let receivedBytes = 0;
+        console.log(
+          `${logPrefix} response received status=${res.statusCode} statusText=${res.statusMessage} headers=${JSON.stringify(res.headers)} elapsedMs=${Date.now() - reqStart}`
+        );
+        res.on("data", (chunk) => {
+          chunks.push(chunk);
+          receivedBytes += chunk.length;
+        });
+        res.on("aborted", () => {
+          console.warn(
+            `${logPrefix} response ABORTED after ${receivedBytes} bytes, elapsedMs=${Date.now() - reqStart}`
+          );
+        });
+        res.on("close", () => {
+          console.log(
+            `${logPrefix} response closed bytes=${receivedBytes} elapsedMs=${Date.now() - reqStart}`
+          );
+        });
         res.on("end", () => {
-          var _a2, _b;
-          const bodyBuffer = Buffer.concat(chunks);
-          const bodyText = bodyBuffer.toString("utf-8");
+          var _a2, _b2;
+          const bodyBuffer2 = Buffer.concat(chunks);
+          const bodyText = bodyBuffer2.toString("utf-8");
           const status = (_a2 = res.statusCode) != null ? _a2 : 0;
-          const statusText = (_b = res.statusMessage) != null ? _b : "";
+          const statusText = (_b2 = res.statusMessage) != null ? _b2 : "";
           const ok = status >= 200 && status < 300;
+          const preview = bodyText.length > 500 ? bodyText.slice(0, 500) + "\u2026" : bodyText;
+          console.log(
+            `${logPrefix} body end length=${bodyText.length} preview=${JSON.stringify(preview)} elapsedMs=${Date.now() - reqStart}`
+          );
           resolve({
             ok,
             status,
             statusText,
             text: () => Promise.resolve(bodyText),
-            json: () => Promise.resolve(JSON.parse(bodyText))
+            json: () => {
+              if (!bodyText || bodyText.trim() === "") {
+                return Promise.reject(
+                  new Error(
+                    `Empty response body (status=${status}, headers=${JSON.stringify(res.headers)})`
+                  )
+                );
+              }
+              try {
+                return Promise.resolve(JSON.parse(bodyText));
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                return Promise.reject(
+                  new Error(`JSON parse failed: ${msg}, raw body (first 500 chars)=${preview}`)
+                );
+              }
+            }
           });
         });
-        res.on("error", reject);
+        res.on("error", (err) => {
+          console.error(
+            `${logPrefix} response error after ${receivedBytes} bytes, elapsedMs=${Date.now() - reqStart}`,
+            err
+          );
+          reject(err);
+        });
       });
-      req.on("error", reject);
-      if (init == null ? void 0 : init.body) {
-        if (typeof init.body === "string") {
-          req.write(init.body);
-        } else if (Buffer.isBuffer(init.body)) {
-          req.write(init.body);
-        }
+      req.setTimeout(6e5, () => {
+        console.error(`${logPrefix} request TIMEOUT after 600s, elapsedMs=${Date.now() - reqStart}`);
+        req.destroy(new Error("Request timeout (600s)"));
+      });
+      req.on("error", (err) => {
+        console.error(`${logPrefix} request error elapsedMs=${Date.now() - reqStart}`, err);
+        reject(err);
+      });
+      req.on("socket", (socket) => {
+        socket.on("connect", () => {
+          console.log(`${logPrefix} socket connected elapsedMs=${Date.now() - reqStart}`);
+        });
+        socket.on("secureConnect", () => {
+          var _a2;
+          console.log(
+            `${logPrefix} TLS handshake done protocol=${(_a2 = socket.getProtocol) == null ? void 0 : _a2.call(socket)} authorized=${socket.authorized} elapsedMs=${Date.now() - reqStart}`
+          );
+        });
+        socket.on("close", (hadError) => {
+          console.log(
+            `${logPrefix} socket closed hadError=${hadError} elapsedMs=${Date.now() - reqStart}`
+          );
+        });
+        socket.on("error", (err) => {
+          console.error(
+            `${logPrefix} socket error elapsedMs=${Date.now() - reqStart}`,
+            err
+          );
+        });
+      });
+      if (bodyBuffer) {
+        req.write(bodyBuffer);
+        console.log(
+          `${logPrefix} request body written bytes=${bodyBuffer.length} elapsedMs=${Date.now() - reqStart}`
+        );
       }
-      req.end();
+      req.end(() => {
+        console.log(`${logPrefix} request end() called elapsedMs=${Date.now() - reqStart}`);
+      });
     });
   }
   /**
@@ -230,7 +331,7 @@ var LLMService = class {
    * vLLM-MLX 호환: tool_choice="auto" 필수
    */
   async chat(messages, tools, options) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     const apiUrl = this.effectiveApiUrl;
     const { model, maxTokens, temperature, apiKey } = this.settings;
     const body = {
@@ -243,8 +344,13 @@ var LLMService = class {
       body.tools = tools;
       body.tool_choice = (_c = options == null ? void 0 : options.toolChoice) != null ? _c : "auto";
     }
+    const chatStart = Date.now();
+    const chatEndpoint = `${apiUrl}/chat/completions`;
+    console.log(
+      `[LLM][chat] POST ${chatEndpoint} model=${model} messages=${messages.length} tools=${(_d = tools == null ? void 0 : tools.length) != null ? _d : 0} maxTokens=${body.max_tokens} temperature=${body.temperature}`
+    );
     try {
-      const response = await this.doFetch(`${apiUrl}/chat/completions`, {
+      const response = await this.doFetch(chatEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -254,16 +360,37 @@ var LLMService = class {
       });
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("LLM API Error Response:", errorText);
-        throw new Error(`LLM API error: ${response.status} ${response.statusText}`);
+        console.error(
+          `[LLM][chat] API error status=${response.status} statusText=${response.statusText} body=${errorText}`
+        );
+        throw new Error(`LLM API error: ${response.status} ${response.statusText} body=${errorText}`);
       }
-      const data = await response.json();
-      console.log("LLM API Response:", JSON.stringify(data, null, 2));
-      const message = (_e = (_d = data.choices) == null ? void 0 : _d[0]) == null ? void 0 : _e.message;
-      const content = (_f = message == null ? void 0 : message.content) != null ? _f : "";
-      const toolCalls = (_g = message == null ? void 0 : message.tool_calls) != null ? _g : [];
+      const rawText = await response.text();
+      console.log(
+        `[LLM][chat] response ok=true length=${rawText.length} elapsedMs=${Date.now() - chatStart}`
+      );
+      if (!rawText || rawText.trim() === "") {
+        throw new Error(
+          `LLM returned empty body despite status ${response.status}. This usually indicates a proxy/NAT timeout, response buffering issue, or the server closed the connection before sending data.`
+        );
+      }
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const preview = rawText.length > 500 ? rawText.slice(0, 500) + "\u2026" : rawText;
+        throw new Error(
+          `LLM response JSON parse failed: ${msg}. Raw body (first 500 chars): ${preview}`
+        );
+      }
+      console.log("[LLM][chat] parsed response:", JSON.stringify(data, null, 2));
+      const message = (_f = (_e = data.choices) == null ? void 0 : _e[0]) == null ? void 0 : _f.message;
+      const content = (_g = message == null ? void 0 : message.content) != null ? _g : "";
+      const toolCalls = (_h = message == null ? void 0 : message.tool_calls) != null ? _h : [];
       return { content, toolCalls };
     } catch (error) {
+      console.error(`[LLM][chat] FAILED elapsedMs=${Date.now() - chatStart}`, error);
       if (error instanceof Error) {
         throw new Error(`LLM connection failed: ${error.message}`);
       }

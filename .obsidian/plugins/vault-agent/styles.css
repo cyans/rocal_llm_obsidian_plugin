@@ -437,10 +437,9 @@
 /* Button Container */
 .chat-actions {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
     margin-bottom: 8px;
 }
 
@@ -448,6 +447,51 @@
     display: flex;
     align-items: center;
     gap: 4px;
+}
+
+.chat-debug-indicator {
+    display: flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: transparent;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        opacity var(--va-transition-fast),
+        color var(--va-transition-fast),
+        background-color var(--va-transition-fast),
+        border-color var(--va-transition-fast);
+}
+
+.chat-debug-indicator.is-active {
+    opacity: 1;
+    color: var(--color-orange);
+    background: color-mix(in srgb, var(--color-orange) 14%, transparent);
+    border-color: color-mix(in srgb, var(--color-orange) 32%, transparent);
+}
+
+.chat-more-button {
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0 !important;
+    border-radius: 6px;
+}
+
+.chat-more-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+.chat-more-button:hover {
+    background: var(--background-modifier-hover) !important;
 }
 
 /* Modern Buttons */
@@ -1110,9 +1154,9 @@ button.mod-cta:disabled,
 }
 
 .chat-input {
-    min-height: 84px;
-    max-height: 220px;
-    padding: 6px 4px 8px;
+    min-height: 128px;
+    max-height: 260px;
+    padding: 8px 6px 10px;
     background: transparent;
     line-height: 1.45;
 }
@@ -1128,7 +1172,6 @@ button.mod-cta:disabled,
 .chat-composer-meta {
     display: flex;
     align-items: center;
-    gap: 10px;
     font-size: 12px;
     color: var(--text-muted);
 }
@@ -1136,10 +1179,6 @@ button.mod-cta:disabled,
 .chat-composer-model {
     font-weight: 600;
     color: var(--text-normal);
-}
-
-.chat-composer-hint {
-    color: var(--text-faint);
 }
 
 .chat-send-container {

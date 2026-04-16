@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-04-16
 
-### Fixed
+### Fixed (외부 접속 빈 응답 / ECONNRESET 완전 수정 — v0.2.2 → v0.2.4)
+
+- **외부 DDNS 접속 시 `LLM returned empty body despite status 200` 근본 원인 수정**
+  - **진짜 원인** (`proxy/Caddyfile`): site block이 `localhost:8443`만 등록되어 있어 외부에서 `eeum.iptime.org:8443` Host 헤더로 접속 시 매칭 실패. Caddy가 디폴트 핸들러로 빠져 빈 200 응답을 반환했음.
+  - **수정**: `localhost:8443` → `localhost:8443, eeum.iptime.org:8443`로 두 호스트명 명시 등록.
+  - **검증 방법**: 응답 헤더에 `via: 1.1 Caddy` 존재 = reverse_proxy 실행됨. 부재 = site block 매칭 실패.
+  - **시도했지만 효과 없던 가설들** (Caddy 사이드):
+    - `flush_interval -1` 추가 (SSE/장시간 응답 버퍼링 방지) — 영향 없었음
+    - `transport http` 타임아웃 600s로 확장 — 영향 없었음
+    - `keepalive 60s`, `keepalive_idle_conns 10` — 영향 없었음
+    - `health_uri /v1/models`, `health_interval 30s` — 헬스체크는 동작했으나 라우팅 자체가 안되어 무의미
+  - **부수적 클라이언트 보강** (`src/llm/LLMService.ts`):
+    - `body`를 `Buffer`로 사전 변환하여 정확한 `Content-Length` 명시 (chunked transfer 회피)
+    - `Connection: close` 헤더 추가 + `agent: false` 설정으로 Node.js globalAgent 풀링 비활성화
+    - **이유**: NAT idle timeout으로 RST된 keepalive 소켓 재사용 시 발생한 ECONNRESET 방지
+    - 소켓 레벨 진단 로그 추가 (`socket connect`, `secureConnect`, `close hadError`, `request body written`, `request end()`) — 디버깅 자산으로 보존
+  - **버전 표기**: `manifest.json` / `package.json` `0.2.1` → `0.2.4`
+
+### Fixed (이전 단계 — Caddy TLS `internal_error` (alert 80) 완전 수정)
 - **Caddy TLS `internal_error` (alert 80) 완전 수정**: Windows 등 외부 기기에서 HTTPS 접속 시 `TLSV1_ALERT_INTERNAL_ERROR` 오류 해결
   - **원인 1** (`proxy/Caddyfile`): `:8443` → `localhost:8443` 변경. 호스트 없이 `:포트`만 지정하면 Caddy가 TLS 인증서를 자동 발급하지 않아 모든 연결에 `internal_error` 반환하던 문제 수정
   - **원인 2** (`proxy/Caddyfile`): `health_uri /` → `health_uri /v1/models` 변경. vLLM 서버가 `/` 경로에 404 반환 → Caddy가 백엔드 비정상 판단 → 모든 요청에 503 반환하던 문제 수정

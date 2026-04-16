@@ -1,11 +1,11 @@
 {
   "name": "obsidian-vault-agent",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "description": "AI agent for Obsidian",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && cp main.js .obsidian/plugins/vault-agent/main.js && cp src/styles.css .obsidian/plugins/vault-agent/styles.css",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && cp main.js manifest.json .obsidian/plugins/vault-agent/ && cp src/styles.css .obsidian/plugins/vault-agent/styles.css && cp main.js manifest.json \"/Volumes/data/Obsidian/obsi/.obsidian/plugins/vault-agent/\" && cp src/styles.css \"/Volumes/data/Obsidian/obsi/.obsidian/plugins/vault-agent/styles.css\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

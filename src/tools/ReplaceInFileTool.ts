@@ -76,6 +76,9 @@ export class ReplaceInFileTool extends BaseTool {
     private modal: FileOperationModal;
     private autoConfirm: boolean = false;
     private createBackups: boolean = false;
+    // @MX:NOTE: 백업 시 사용된 실제 경로를 보존하여 호출자가 동일 경로를 재구성할 필요 없게 함.
+    // getBackupPath()는 매번 timestamp가 갱신되어 비결정적이므로, 생성된 마지막 경로를 기록.
+    private lastBackupPath: string | null = null;
 
     constructor(vault: Vault, modal: FileOperationModal) {
         super();
@@ -235,9 +238,17 @@ export class ReplaceInFileTool extends BaseTool {
 
         try {
             await this.vault.create(backupPath, content);
+            this.lastBackupPath = backupPath;
         } catch (error) {
             console.warn(`Failed to create backup: ${backupPath}`, error);
         }
+    }
+
+    /**
+     * Get path of most recently created backup. Returns null if no backup created yet.
+     */
+    getLastBackupPath(): string | null {
+        return this.lastBackupPath;
     }
 
     /**

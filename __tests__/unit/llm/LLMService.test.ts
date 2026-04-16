@@ -49,12 +49,17 @@ describe('LLMService', () => {
             const messages = [{ role: 'user' as const, content: 'Hello' }];
 
             // Mock fetch for testing
+            // @MX:NOTE: LLMService는 raw body 검증을 위해 response.text()를 먼저 호출 후 JSON.parse 수행
+            const mockBody = JSON.stringify({
+                choices: [{ message: { content: 'Response' } }],
+            });
             global.fetch = jest.fn(() =>
                 Promise.resolve({
                     ok: true,
-                    json: () => Promise.resolve({
-                        choices: [{ message: { content: 'Response' } }],
-                    }),
+                    status: 200,
+                    statusText: 'OK',
+                    text: () => Promise.resolve(mockBody),
+                    json: () => Promise.resolve(JSON.parse(mockBody)),
                 } as Response)
             ) as jest.Mock;
 
@@ -85,12 +90,16 @@ describe('LLMService', () => {
                 }
             }];
 
+            const mockBody = JSON.stringify({
+                choices: [{ message: { content: 'Response' } }],
+            });
             global.fetch = jest.fn(() =>
                 Promise.resolve({
                     ok: true,
-                    json: () => Promise.resolve({
-                        choices: [{ message: { content: 'Response' } }],
-                    }),
+                    status: 200,
+                    statusText: 'OK',
+                    text: () => Promise.resolve(mockBody),
+                    json: () => Promise.resolve(JSON.parse(mockBody)),
                 } as Response)
             ) as jest.Mock;
 

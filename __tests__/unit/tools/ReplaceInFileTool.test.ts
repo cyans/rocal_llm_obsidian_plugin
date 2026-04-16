@@ -293,9 +293,11 @@ describe('ReplaceInFileTool', () => {
                 ]
             });
 
-            // Backup should be created
-            const backupPath = replaceTool.getBackupPath('backup-test.md');
-            expect(mockVault.exists(backupPath)).toBe(true);
+            // Backup should be created — use the actually-recorded path
+            // to avoid timestamp drift between createBackup() and getBackupPath()
+            const backupPath = replaceTool.getLastBackupPath();
+            expect(backupPath).not.toBeNull();
+            expect(mockVault.exists(backupPath as string)).toBe(true);
         });
     });
 });

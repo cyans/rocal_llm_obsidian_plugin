@@ -6,10 +6,23 @@
     local_certs
 }
 
-localhost:8443 {
+localhost:8443, eeum.iptime.org:8443 {
     # TLS: Caddy 내부 CA로 자체 서명 인증서 자동 생성
-    # 참고: `:8443`이 아닌 `localhost:8443`으로 지정해야 Caddy가 인증서를 자동 발급함
+    # @MX:NOTE: 두 호스트명을 명시적으로 등록하여 두 Host 헤더 모두 매칭하고
+    # `tls internal`이 각 호스트에 대해 인증서를 자동 발급하도록 함.
+    # @MX:REASON: `localhost:8443`만 두면 외부에서 `eeum.iptime.org:8443` Host로 접속 시
+    # 디폴트 핸들러가 빈 200 응답을 반환. `:8443` (catch-all)은 SNI별 인증서 발급이 안되어 TLS 실패.
     tls internal
+
+    # 액세스 로그: 외부 POST가 실제 도착하는지 진단용
+    log {
+        output file /tmp/caddy-access.log {
+            roll_size 10MB
+            roll_keep 3
+        }
+        format json
+        level INFO
+    }
 
     # CORS 헤더 추가 (Obsidian 등 클라이언트 지원)
     header {
@@ -39,10 +52,19 @@ localhost:8443 {
     # 유효한 API 키: vLLM 로컬 서버로 역방향 프록시
     handle @authorized {
         reverse_proxy localhost:8001 {
-            # 연결 타임아웃 설정
+            # 즉시 플러시 - 버퍼링 비활성화로 NAT/프록시 idle 타임아웃 방지
+            # -1: 모든 쓰기마다 즉시 flush (SSE/장시간 추론 응답 필수)
+            flush_interval -1
+
+            # 연결 타임아웃 설정 (Qwen 장시간 추론 허용)
             transport http {
                 dial_timeout 5s
-                response_header_timeout 300s
+                response_header_timeout 600s
+                read_timeout 600s
+                write_timeout 600s
+                # Keep-alive 재사용으로 연결 안정성 향상
+                keepalive 60s
+                keepalive_idle_conns 10
             }
             # 헬스체크: vLLM은 / 경로가 404이므로 /v1/models 사용
             health_uri /v1/models
