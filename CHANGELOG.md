@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-04-16
 
+### Fixed
+- **Caddy TLS `internal_error` (alert 80) 완전 수정**: Windows 등 외부 기기에서 HTTPS 접속 시 `TLSV1_ALERT_INTERNAL_ERROR` 오류 해결
+  - **원인 1** (`proxy/Caddyfile`): `:8443` → `localhost:8443` 변경. 호스트 없이 `:포트`만 지정하면 Caddy가 TLS 인증서를 자동 발급하지 않아 모든 연결에 `internal_error` 반환하던 문제 수정
+  - **원인 2** (`proxy/Caddyfile`): `health_uri /` → `health_uri /v1/models` 변경. vLLM 서버가 `/` 경로에 404 반환 → Caddy가 백엔드 비정상 판단 → 모든 요청에 503 반환하던 문제 수정
+  - **원인 3** (`src/llm/LLMService.ts`): `minVersion: 'TLSv1.2'` / `maxVersion: 'TLSv1.2'` 제거. TLS 버전 제한이 Caddy/Go TLS와 충돌. 자연 협상에 맡기도록 변경
+  - **원인 4** (`src/llm/LLMService.ts`): IP 주소로 접속 시 SNI를 `'localhost'`로 오버라이드 추가. Caddy `tls internal` 인증서가 `localhost` 기준으로 발급되므로 IP 접속 시 SNI 불일치 방지
+  - **원인 5** (`src/main.ts`): `allowInsecureTls` 활성 시 `NODE_TLS_REJECT_UNAUTHORIZED=0` 전역 설정 추가. Node.js TLS 레이어에서도 인증서 검증 비활성화
+
 ### Added
 - **로컬 URL 오버라이드 기능**: 기기별 독립 API URL 설정 지원
   - `LOCAL_URL_STORAGE_KEY` 상수 추가 (`vault-agent-local-url`)

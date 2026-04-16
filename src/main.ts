@@ -127,12 +127,17 @@ export default class VaultAgentPlugin extends Plugin {
     }
 
     /**
-     * allowInsecureTls 설정 시 Electron 세션 레벨에서 TLS 인증서 검증 비활성화
+     * allowInsecureTls 설정 시 Electron 세션 및 Node.js TLS 레벨에서 인증서 검증 비활성화
      * @MX:WARN: 자가 서명 인증서 허용 - 신뢰된 사설 네트워크에서만 사용
-     * @MX:REASON: 외부 기기(iPhone, Windows)에서 CA 설치 없이 HTTPS 연결 허용
+     * @MX:REASON: 외부 기기(iPhone, Windows)에서 CA 설치 없이 HTTPS 연결 허용.
+     *   NODE_TLS_REJECT_UNAUTHORIZED=0 추가로 Electron Node.js 레이어의 TLS 검증도 비활성화.
      */
     private configureElectronTls(): void {
         if (!this.settings.allowInsecureTls) return;
+
+        // Node.js TLS 레이어 전역 인증서 검증 비활성화
+        // fetchInsecure()의 rejectUnauthorized=false와 중복 보호
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
         try {
             // eslint-disable-next-line @typescript-eslint/no-var-requires

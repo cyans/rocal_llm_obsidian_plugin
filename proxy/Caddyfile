@@ -6,8 +6,9 @@
     local_certs
 }
 
-:8443 {
+localhost:8443 {
     # TLS: Caddy 내부 CA로 자체 서명 인증서 자동 생성
+    # 참고: `:8443`이 아닌 `localhost:8443`으로 지정해야 Caddy가 인증서를 자동 발급함
     tls internal
 
     # CORS 헤더 추가 (Obsidian 등 클라이언트 지원)
@@ -43,8 +44,8 @@
                 dial_timeout 5s
                 response_header_timeout 300s
             }
-            # 헬스체크
-            health_uri /
+            # 헬스체크: vLLM은 / 경로가 404이므로 /v1/models 사용
+            health_uri /v1/models
             health_interval 30s
         }
     }

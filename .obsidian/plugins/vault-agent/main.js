@@ -70,16 +70,21 @@ var LLMService = class {
       const parsedUrl = new URL(url);
       const isHttps = parsedUrl.protocol === "https:";
       const transport = isHttps ? https : http;
+      const hostname = parsedUrl.hostname;
+      const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$|^\[.*\]$/.test(hostname);
       const options = {
-        hostname: parsedUrl.hostname,
+        hostname,
         port: parsedUrl.port || (isHttps ? 443 : 80),
         path: parsedUrl.pathname + parsedUrl.search,
         method: ((_a = init == null ? void 0 : init.method) != null ? _a : "GET").toUpperCase(),
         headers: init == null ? void 0 : init.headers,
         rejectUnauthorized: false,
         // 인증서 체인 검증 비활성화
-        checkServerIdentity: () => void 0
+        checkServerIdentity: () => void 0,
         // 호스트명 검증도 비활성화
+        // IP 주소로 접속 시 Caddy의 tls internal 인증서(localhost 기준) 매칭을 위해
+        // SNI를 'localhost'로 오버라이드. 도메인 접속 시에는 원래 호스트명 사용.
+        servername: isIpAddress ? "localhost" : hostname
       };
       const req = transport.request(options, (res) => {
         const chunks = [];
@@ -3630,14 +3635,16 @@ var VaultAgentPlugin = class extends import_obsidian5.Plugin {
     }
   }
   /**
-   * allowInsecureTls 설정 시 Electron 세션 레벨에서 TLS 인증서 검증 비활성화
+   * allowInsecureTls 설정 시 Electron 세션 및 Node.js TLS 레벨에서 인증서 검증 비활성화
    * @MX:WARN: 자가 서명 인증서 허용 - 신뢰된 사설 네트워크에서만 사용
-   * @MX:REASON: 외부 기기(iPhone, Windows)에서 CA 설치 없이 HTTPS 연결 허용
+   * @MX:REASON: 외부 기기(iPhone, Windows)에서 CA 설치 없이 HTTPS 연결 허용.
+   *   NODE_TLS_REJECT_UNAUTHORIZED=0 추가로 Electron Node.js 레이어의 TLS 검증도 비활성화.
    */
   configureElectronTls() {
     var _a;
     if (!this.settings.allowInsecureTls)
       return;
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     try {
       const { session } = require("electron");
       if (typeof ((_a = session == null ? void 0 : session.defaultSession) == null ? void 0 : _a.setCertificateVerifyProc) === "function") {

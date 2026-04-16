@@ -110,14 +110,23 @@ export class LLMService {
             const transport = isHttps ? https : http;
 
             // TLS 검증 비활성화 옵션
+            // @MX:WARN: rejectUnauthorized=false는 보안 위험. 신뢰된 로컬/사설 네트워크에서만 사용
+            // @MX:REASON: Caddy tls internal 사용 시 IP 접속에서 TLSV1_ALERT_INTERNAL_ERROR 발생.
+            //   minVersion/maxVersion 제거 후 TLS 버전을 자연 협상에 맡기고, 인증서 검증만 비활성화.
+            //   IP 주소 접속 시 Caddy의 SNI 불일치를 우회하기 위해 servername을 'localhost'로 고정.
+            const hostname = parsedUrl.hostname;
+            const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$|^\[.*\]$/.test(hostname);
             const options: https.RequestOptions = {
-                hostname: parsedUrl.hostname,
+                hostname,
                 port: parsedUrl.port || (isHttps ? 443 : 80),
                 path: parsedUrl.pathname + parsedUrl.search,
                 method: (init?.method ?? 'GET').toUpperCase(),
                 headers: init?.headers as Record<string, string> | undefined,
-                rejectUnauthorized: false,     // 인증서 체인 검증 비활성화
+                rejectUnauthorized: false,          // 인증서 체인 검증 비활성화
                 checkServerIdentity: () => undefined, // 호스트명 검증도 비활성화
+                // IP 주소로 접속 시 Caddy의 tls internal 인증서(localhost 기준) 매칭을 위해
+                // SNI를 'localhost'로 오버라이드. 도메인 접속 시에는 원래 호스트명 사용.
+                servername: isIpAddress ? 'localhost' : hostname,
             };
 
             const req = transport.request(options, (res) => {
