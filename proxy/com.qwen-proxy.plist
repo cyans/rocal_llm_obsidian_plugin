@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    macOS LaunchAgent: com.qwen-proxy
+    역할: 부팅 시 Caddy 역방향 프록시를 자동으로 시작합니다.
+
+    설치 방법: setup.sh가 자동으로 처리합니다.
+    수동 설치: launchctl load ~/Library/LaunchAgents/com.qwen-proxy.plist
+    수동 중지: launchctl unload ~/Library/LaunchAgents/com.qwen-proxy.plist
+
+    플레이스홀더 (setup.sh가 실제 값으로 대체):
+        __QWEN_PROXY_API_KEY__  → 생성된 API 키
+        __HOME__                → 사용자 홈 디렉토리 경로
+-->
+<plist version="1.0">
+<dict>
+    <!-- LaunchAgent 고유 식별자 -->
+    <key>Label</key>
+    <string>com.qwen-proxy</string>
+
+    <!-- 실행 명령: bash를 통해 환경 변수를 설정한 후 Caddy 실행 -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <!-- Caddy를 실행하며 설정 파일 경로를 HOME 기반으로 지정 -->
+        <string>exec /opt/homebrew/bin/caddy run --config "$HOME/.config/caddy/Caddyfile"</string>
+    </array>
+
+    <!-- 환경 변수: API 키 및 기본 PATH 설정 -->
+    <!-- setup.sh가 __QWEN_PROXY_API_KEY__를 실제 키로 교체합니다 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>QWEN_PROXY_API_KEY</key>
+        <string>__QWEN_PROXY_API_KEY__</string>
+        <key>HOME</key>
+        <string>__HOME__</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- 로그인 시 자동 시작 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- 프로세스 종료 시 자동 재시작 -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- 표준 출력 로그 -->
+    <key>StandardOutPath</key>
+    <string>/tmp/qwen-proxy.log</string>
+
+    <!-- 표준 오류 로그 -->
+    <key>StandardErrorPath</key>
+    <string>/tmp/qwen-proxy-error.log</string>
+
+    <!-- 작업 디렉토리 -->
+    <key>WorkingDirectory</key>
+    <string>__HOME__</string>
+</dict>
+</plist>

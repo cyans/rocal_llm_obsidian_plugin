@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-04-16
+
+### Added
+- **로컬 URL 오버라이드 기능**: 기기별 독립 API URL 설정 지원
+  - `LOCAL_URL_STORAGE_KEY` 상수 추가 (`vault-agent-local-url`)
+  - `effectiveApiUrl` getter: localStorage 오버라이드 우선, 없으면 설정 URL 사용
+  - Obsidian Sync에서 제외되는 localStorage 기반 저장으로 기기별 독립 설정
+  - 설정 UI에 "Local Override (This Device Only)" 섹션 추가
+- **Caddy HTTPS 역방향 프록시 설정** (`proxy/` 디렉토리)
+  - `Caddyfile`: API 키 인증 + 자가 서명 인증서 지원
+  - `setup.sh`: 자동 설치 스크립트 (Caddy 설치, LaunchAgent 등록)
+  - `com.qwen-proxy.plist`: macOS 부팅 시 자동 시작용 LaunchAgent
+  - `README.md`: 외부 접근 설정 가이드
+- **TLS 검증 우회 (`Allow Insecure TLS`)**: 자가 서명 인증서 환경 지원
+  - iPhone, Windows 등 CA 미설치 기기에서 HTTPS 연결 가능
+  - Node.js `https` 모듈 기반 `fetchInsecure()` 구현
+  - `doFetch()` 헬퍼로 모든 외부 요청 일원화
+
+### Changed
+- **`LLMService`**: 모든 API 요청이 `effectiveApiUrl`을 통해 localhost 오버라이드 지원
+- **`proxy/Caddyfile`**: 백엔드 포트 11434 → 8001로 수정 (vLLM 서버 포트)
+- **`proxy/README.md`**: 포트 번호 및 아키텍처 설명 업데이트
+
+### Fixed
+- **`Caddyfile` 문법 오류**: `respond` 블록 내 `header` 서브디렉티브 위치 수정
+  - `respond` 블록 밖으로 `header Content-Type application/json` 이동
+
 ## [0.2.1] - 2026-03-06
 
 ### Changed

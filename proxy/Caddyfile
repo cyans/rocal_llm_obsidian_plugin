@@ -1,0 +1,57 @@
+# Caddy 역방향 프록시 설정 - Qwen LLM 서버용
+# vLLM 로컬 서버(localhost:8001)를 외부에 HTTPS + API 키 인증으로 노출
+
+{
+    # 전역 설정: 로컬 CA로 자체 서명 인증서 사용
+    local_certs
+}
+
+:8443 {
+    # TLS: Caddy 내부 CA로 자체 서명 인증서 자동 생성
+    tls internal
+
+    # CORS 헤더 추가 (Obsidian 등 클라이언트 지원)
+    header {
+        Access-Control-Allow-Origin  *
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+        # 보안 헤더
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+    }
+
+    # OPTIONS 프리플라이트 요청 처리 (204 No Content)
+    @options method OPTIONS
+    handle @options {
+        respond 204
+    }
+
+    # API 키 검증: Authorization: Bearer <QWEN_PROXY_API_KEY>
+    @authorized {
+        header Authorization "Bearer {$QWEN_PROXY_API_KEY}"
+    }
+
+    @unauthorized {
+        not header Authorization "Bearer {$QWEN_PROXY_API_KEY}"
+    }
+
+    # 유효한 API 키: vLLM 로컬 서버로 역방향 프록시
+    handle @authorized {
+        reverse_proxy localhost:8001 {
+            # 연결 타임아웃 설정
+            transport http {
+                dial_timeout 5s
+                response_header_timeout 300s
+            }
+            # 헬스체크
+            health_uri /
+            health_interval 30s
+        }
+    }
+
+    # 유효하지 않은 API 키: 401 Unauthorized 반환
+    handle @unauthorized {
+        header Content-Type application/json
+        respond `{"error": "Unauthorized"}` 401
+    }
+}

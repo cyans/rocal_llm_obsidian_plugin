@@ -11,6 +11,17 @@ describe('LLMService', () => {
     let mockSettings: VaultAgentSettings;
 
     beforeEach(() => {
+        // localStorage mock for Node.js/Jest environment
+        const localStorageData: Record<string, string> = {};
+        global.localStorage = {
+            getItem: (key: string) => localStorageData[key] ?? null,
+            setItem: (key: string, value: string) => { localStorageData[key] = value; },
+            removeItem: (key: string) => { delete localStorageData[key]; },
+            clear: () => { Object.keys(localStorageData).forEach(k => delete localStorageData[k]); },
+            length: 0,
+            key: () => null,
+        } as unknown as Storage;
+
         mockSettings = {
             apiUrl: 'http://localhost:11434/v1',
             model: 'qwen3.5:latest',
@@ -19,6 +30,7 @@ describe('LLMService', () => {
             temperature: 0.7,
             agentMode: true,
             braveApiKey: '', // Brave Search API 키
+            allowInsecureTls: false,
             tools: {
                 vaultSearch: true,
                 webSearch: true,
@@ -60,6 +72,34 @@ describe('LLMService', () => {
             ) as jest.Mock;
 
             await expect(service.chat(messages)).rejects.toThrow('LLM connection failed');
+        });
+
+        it('should pass tool_choice none when requested', async () => {
+            const messages = [{ role: 'user' as const, content: 'Hello' }];
+            const tools = [{
+                type: 'function' as const,
+                function: {
+                    name: 'test_tool',
+                    description: 'test',
+                    parameters: { type: 'object', properties: {}, required: [] }
+                }
+            }];
+
+            global.fetch = jest.fn(() =>
+                Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        choices: [{ message: { content: 'Response' } }],
+                    }),
+                } as Response)
+            ) as jest.Mock;
+
+            await service.chat(messages, tools, { toolChoice: 'none' });
+
+            const [, request] = (global.fetch as jest.Mock).mock.calls[0];
+            expect(JSON.parse(request.body)).toMatchObject({
+                tool_choice: 'none'
+            });
         });
     });
 });

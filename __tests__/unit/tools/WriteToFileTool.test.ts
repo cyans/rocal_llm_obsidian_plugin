@@ -204,6 +204,8 @@ describe('WriteToFileTool', () => {
         it('should create backup before overwriting', async () => {
             mockVault.create('backup-test.md', 'Original content');
             mockModal.setConfirmed(true);
+            writeTool.setCreateBackups(true);    // 백업 기능 명시적 활성화
+            writeTool.setBackupTimestamp(false); // 타임스탬프 비활성화로 고정 경로 사용
 
             await writeTool.execute({
                 file_path: 'backup-test.md',

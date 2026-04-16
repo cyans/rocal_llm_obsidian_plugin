@@ -284,6 +284,7 @@ describe('ReplaceInFileTool', () => {
         it('should create backup before replacement', async () => {
             mockVault.setFile('backup-test.md', 'Original content');
             mockModal.setConfirmed(true);
+            replaceTool.setCreateBackups(true); // 백업 기능 명시적 활성화
 
             await replaceTool.execute({
                 file_path: 'backup-test.md',
