@@ -463,6 +463,13 @@ export class LLMService {
             body.tool_choice = options?.toolChoice ?? 'auto';
         }
 
+        // Disable Qwen-family thinking/reasoning mode (vLLM, SGLang, Ollama-compat).
+        // Unknown fields are ignored by non-supporting servers, so this is safe.
+        body.chat_template_kwargs = {
+            ...(body.chat_template_kwargs ?? {}),
+            enable_thinking: false,
+        };
+
         // @MX:NOTE: Phase 1 진단 로깅 - chat 요청 자체 추적
         const chatStart = Date.now();
         const chatEndpoint = `${apiUrl}/chat/completions`;

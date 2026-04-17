@@ -331,7 +331,7 @@ var LLMService = class {
    * vLLM-MLX 호환: tool_choice="auto" 필수
    */
   async chat(messages, tools, options) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
     const apiUrl = this.effectiveApiUrl;
     const { model, maxTokens, temperature, apiKey } = this.settings;
     const body = {
@@ -344,10 +344,14 @@ var LLMService = class {
       body.tools = tools;
       body.tool_choice = (_c = options == null ? void 0 : options.toolChoice) != null ? _c : "auto";
     }
+    body.chat_template_kwargs = {
+      ...(_d = body.chat_template_kwargs) != null ? _d : {},
+      enable_thinking: false
+    };
     const chatStart = Date.now();
     const chatEndpoint = `${apiUrl}/chat/completions`;
     console.log(
-      `[LLM][chat] POST ${chatEndpoint} model=${model} messages=${messages.length} tools=${(_d = tools == null ? void 0 : tools.length) != null ? _d : 0} maxTokens=${body.max_tokens} temperature=${body.temperature}`
+      `[LLM][chat] POST ${chatEndpoint} model=${model} messages=${messages.length} tools=${(_e = tools == null ? void 0 : tools.length) != null ? _e : 0} maxTokens=${body.max_tokens} temperature=${body.temperature}`
     );
     try {
       const response = await this.doFetch(chatEndpoint, {
@@ -385,9 +389,9 @@ var LLMService = class {
         );
       }
       console.log("[LLM][chat] parsed response:", JSON.stringify(data, null, 2));
-      const message = (_f = (_e = data.choices) == null ? void 0 : _e[0]) == null ? void 0 : _f.message;
-      const content = (_g = message == null ? void 0 : message.content) != null ? _g : "";
-      const toolCalls = (_h = message == null ? void 0 : message.tool_calls) != null ? _h : [];
+      const message = (_g = (_f = data.choices) == null ? void 0 : _f[0]) == null ? void 0 : _g.message;
+      const content = (_h = message == null ? void 0 : message.content) != null ? _h : "";
+      const toolCalls = (_i = message == null ? void 0 : message.tool_calls) != null ? _i : [];
       return { content, toolCalls };
     } catch (error) {
       console.error(`[LLM][chat] FAILED elapsedMs=${Date.now() - chatStart}`, error);
@@ -1194,6 +1198,13 @@ Exceptions (these MAY stay in their original language):
 When uncertain, prefer the Korean translation or Korean transliteration (\uC608: "Terminal-Bench"\uC740 \uC6D0\uC5B4, "\uD130\uBBF8\uB110 \uBCA4\uCE58"\uB294 \uBC88\uC5ED).
 \uC704 \uADDC\uCE59\uC740 \uBC18\uB4DC\uC2DC \uC9C0\uCF1C\uC57C \uD558\uBA70, \uB2F5\uBCC0\uC774 \uD55C\uAD6D\uC5B4\uAC00 \uC544\uB2CC \uACBD\uC6B0 \uBAA8\uB450 \uC7AC\uC791\uC131\uD558\uC138\uC694.
 
+## THINKING MODE RULE (STRICT)
+Do NOT expose your internal reasoning, chain-of-thought, meta-commentary, self-confirmation lines, or "thinking process" in the final answer.
+Output ONLY the finished answer intended for the user \u2014 nothing else.
+Never include phrases like "I will output this.", "Let me think.", "Done.", "Final answer.", "The user's request is handled.", or similar self-narration.
+/no_think
+\uB0B4\uBD80 \uCD94\uB860\xB7\uC0AC\uACE0 \uACFC\uC815\xB7\uC790\uAE30 \uD655\uC778 \uBB38\uC7A5\uC744 \uC808\uB300 \uB2F5\uBCC0\uC5D0 \uD3EC\uD568\uD558\uC9C0 \uB9C8\uC138\uC694. \uC644\uC131\uB41C \uB2F5\uBCC0 \uBCF8\uBB38\uB9CC \uC791\uC131\uD569\uB2C8\uB2E4.
+
 You are a kind knowledge-base assistant for an Obsidian vault.
 Your role is to help the user build a personal knowledge repository that connects accumulated notes, discovers relationships between distant ideas, and supports new insight generation.
 
@@ -1258,6 +1269,10 @@ Always use tools when needed. Do NOT say you can't use tools - you MUST use them
 \uCD5C\uC885 \uB2F5\uBCC0\uC740 \uBC18\uB4DC\uC2DC \uD55C\uAD6D\uC5B4\uB85C\uB9CC \uC791\uC131\uD569\uB2C8\uB2E4 (LANGUAGE RULE \uC7AC\uD655\uC778).`;
 var DEFAULT_SYSTEM_INSTRUCTIONS_MINIMAL = `## LANGUAGE RULE (STRICT)
 Respond in Korean (\uD55C\uAD6D\uC5B4) only. Do NOT use Simplified/Traditional Chinese or Japanese kana characters. Proper nouns, English acronyms, and code may remain in original language.
+
+## THINKING MODE RULE
+Do NOT output internal reasoning or chain-of-thought. Output only the final answer.
+/no_think
 
 You are a kind knowledge-base assistant for an Obsidian vault.
 Help the user build a personal knowledge repository by reading, summarizing, reorganizing, and connecting notes.
@@ -1705,6 +1720,9 @@ ${newKeywords.join(" ")}
       return "";
     }
     let normalized = content.replace(/\r\n/g, "\n").trim();
+    normalized = normalized.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    normalized = normalized.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim();
+    normalized = normalized.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "").trim();
     normalized = normalized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "").trim();
     normalized = normalized.replace(/<tool>[\s\S]*?<\/tool>/gi, "").trim();
     normalized = normalized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, "").trim();

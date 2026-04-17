@@ -466,6 +466,9 @@ ${content}`;
         }
 
         let normalized = content.replace(/\r\n/g, '\n').trim();
+        normalized = normalized.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        normalized = normalized.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+        normalized = normalized.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trim();
         normalized = normalized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '').trim();
         normalized = normalized.replace(/<tool>[\s\S]*?<\/tool>/gi, '').trim();
         normalized = normalized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, '').trim();

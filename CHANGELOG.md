@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **시스템 프롬프트 언어 규칙 강화** (`src/agent/PromptBuilder.ts`): `DEFAULT_SYSTEM_INSTRUCTIONS`와 `DEFAULT_SYSTEM_INSTRUCTIONS_MINIMAL` 상단에 `## LANGUAGE RULE (STRICT — READ FIRST)` 블록 추가. 간체/번체 한자·히라가나·가타카나 사용 금지, 고유명사·영문 약어·코드·인용만 예외 허용. 기존 `"Respond in the user's language."`은 한국어 강제 문구로 교체.
 - Qwen 3.6(중국어 기반 모델) 특성상 약한 언어 지시로는 샘플링 단계에서 외래 문자가 누수되던 문제 해결.
 
+### Fixed (Qwen 3.6 thinking mode 추론 과정 누수 방지 — 4중 방어)
+
+- **시스템 프롬프트에 `THINKING MODE RULE` 블록 추가** (`src/agent/PromptBuilder.ts`): "내부 추론·chain-of-thought·자기 확인 문장을 답변에 포함하지 말 것" 강제 + Qwen 공식 제어 토큰 `/no_think` 삽입. `DEFAULT_SYSTEM_INSTRUCTIONS`와 `DEFAULT_SYSTEM_INSTRUCTIONS_MINIMAL` 두 프롬프트에 모두 적용.
+- **API 요청 body에 `chat_template_kwargs.enable_thinking: false` 전달** (`src/llm/LLMService.ts`): vLLM·SGLang·Ollama-compat 서버가 Qwen chat template에서 thinking 렌더링을 건너뛰도록 지시. 미지원 서버는 필드를 무시하므로 무해.
+- **`<think>` / `<thinking>` / `<reasoning>` 태그 폴백 스트리핑** (`src/agent/AgentController.ts:normalizeFinalContent`): 서버가 토글을 무시하고 태그로 싸서 보낼 때 최종 답변에 노출되지 않도록 제거.
+- Qwen 3.x thinking 모드가 `"I will output this."`, `"Done."`, `"Final answer."` 같은 메타 프로즈를 답변에 섞어 내보내던 문제 해결.
+
 ### Other (이번 커밋에 함께 포함된 보류 작업)
 
 - **채팅 액션 영역 재설계** (`src/ui/ChatView.ts`, `src/agent/PromptBuilder.ts`): 초기화/디버그 버튼 → 단일 "더보기" 메뉴 + 디버그 인디케이터 배지로 전환, placeholder·rows 조정.
