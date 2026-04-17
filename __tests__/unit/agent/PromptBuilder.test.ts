@@ -76,6 +76,7 @@ describe('PromptBuilder', () => {
             expect(systemPrompt).toContain('personal knowledge repository');
             expect(systemPrompt).toContain('#키워드');
             expect(systemPrompt).toContain('Do not only connect identical keywords');
+            expect(systemPrompt).toContain('MUST give exactly one final user-facing answer in plain text');
         });
 
         it('should include selected file editing guidance when active file exists', () => {
@@ -113,6 +114,7 @@ describe('PromptBuilder', () => {
             expect(prompt).toBeDefined();
             expect(typeof prompt).toBe('string');
             expect(prompt.length).toBeGreaterThan(0);
+            expect(prompt).toContain('text-only final answer');
         });
 
         it('should use custom instructions when provided', () => {

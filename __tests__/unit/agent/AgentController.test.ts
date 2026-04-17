@@ -505,6 +505,83 @@ title: Test
         });
     });
 
+    describe('tool argument parsing (Qwen3.6 regression)', () => {
+        it('(a) string arguments are parsed as JSON and passed correctly to the tool', async () => {
+            const receivedParams: Record<string, any>[] = [];
+            jest.spyOn(mockTool, 'execute').mockImplementation(async (params) => {
+                receivedParams.push(params);
+                return { results: [] };
+            });
+
+            jest.spyOn(llmService, 'chat')
+                .mockResolvedValueOnce({
+                    content: '',
+                    toolCalls: [{
+                        id: 'c1',
+                        type: 'function',
+                        function: { name: 'vault_search', arguments: '{"query":"x"}' }
+                    }]
+                })
+                .mockResolvedValueOnce(textResult('done'));
+
+            await agentController.processMessage('test');
+
+            expect(receivedParams.length).toBe(1);
+            expect(receivedParams[0]).toEqual({ query: 'x' });
+            expect(receivedParams[0]).not.toHaveProperty('raw');
+        });
+
+        it('(b) object arguments (Qwen3.6 native) are passed as-is, NOT wrapped in {raw:}', async () => {
+            const receivedParams: Record<string, any>[] = [];
+            jest.spyOn(mockTool, 'execute').mockImplementation(async (params) => {
+                receivedParams.push(params);
+                return { results: [] };
+            });
+
+            jest.spyOn(llmService, 'chat')
+                .mockResolvedValueOnce({
+                    content: '',
+                    toolCalls: [{
+                        id: 'c1',
+                        type: 'function',
+                        // Simulate Qwen3.6 returning already-parsed object instead of string
+                        function: { name: 'vault_search', arguments: { query: 'x' } as any }
+                    }]
+                })
+                .mockResolvedValueOnce(textResult('done'));
+
+            await agentController.processMessage('test');
+
+            expect(receivedParams.length).toBe(1);
+            expect(receivedParams[0]).toEqual({ query: 'x' });
+            expect(receivedParams[0]).not.toHaveProperty('raw');
+        });
+
+        it('(c) invalid JSON string arguments fall back to {raw: str}', async () => {
+            const receivedParams: Record<string, any>[] = [];
+            jest.spyOn(mockTool, 'execute').mockImplementation(async (params) => {
+                receivedParams.push(params);
+                return { results: [] };
+            });
+
+            jest.spyOn(llmService, 'chat')
+                .mockResolvedValueOnce({
+                    content: '',
+                    toolCalls: [{
+                        id: 'c1',
+                        type: 'function',
+                        function: { name: 'vault_search', arguments: 'not-json' }
+                    }]
+                })
+                .mockResolvedValueOnce(textResult('done'));
+
+            await agentController.processMessage('test');
+
+            expect(receivedParams.length).toBe(1);
+            expect(receivedParams[0]).toEqual({ raw: 'not-json' });
+        });
+    });
+
     describe('agent mode', () => {
         it('should report agent mode enabled', () => {
             const controller = new AgentController(llmService, toolRegistry, true);

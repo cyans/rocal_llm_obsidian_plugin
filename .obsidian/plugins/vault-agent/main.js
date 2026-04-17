@@ -872,6 +872,8 @@ ${rawLLMResponse}`;
     sanitized = sanitized.replace(/<function=[\s\S]*$/gi, "").trim();
     sanitized = sanitized.replace(/\n{3,}/g, "\n\n");
     sanitized = sanitized.replace(/[ \t]+\n/g, "\n");
+    sanitized = sanitized.replace(/\u00A0/g, " ");
+    sanitized = sanitized.replace(/^[ \t]+$/gm, "");
     if (!sanitized) {
       return "\uB3C4\uAD6C\uB97C \uC0AC\uC6A9\uD574 \uC694\uCCAD\uC744 \uCC98\uB9AC\uD588\uC2B5\uB2C8\uB2E4.";
     }
@@ -1437,14 +1439,17 @@ ${this.activeFileContent}
       this.iterationCount++;
       let toolCalls = [];
       if (this.agentModeEnabled && result.toolCalls && result.toolCalls.length > 0) {
-        toolCalls = result.toolCalls.map((tc) => ({
-          id: tc.id,
-          type: "function",
-          function: {
-            name: tc.function.name,
-            arguments: this.safeParseJSON(tc.function.arguments)
-          }
-        }));
+        toolCalls = result.toolCalls.map((tc) => {
+          console.log("[Agent] tool_call arguments type:", typeof tc.function.arguments, "value:", tc.function.arguments);
+          return {
+            id: tc.id,
+            type: "function",
+            function: {
+              name: tc.function.name,
+              arguments: this.safeParseJSON(tc.function.arguments)
+            }
+          };
+        });
       } else if (this.agentModeEnabled && result.content) {
         toolCalls = this.parseToolCalls(result.content);
       }
@@ -1502,6 +1507,7 @@ ${this.activeFileContent}
       messages.push(assistantMsg);
       for (const toolCall of toolCalls) {
         this.emitStatus(`\uB3C4\uAD6C \uC2E4\uD589 \uC911: ${toolCall.function.name}`);
+        console.log("[Agent] executing tool:", toolCall.function.name, "args:", JSON.stringify(toolCall.function.arguments));
         let toolResult;
         try {
           toolResult = await this.toolRegistry.execute(
@@ -1580,8 +1586,11 @@ ${this.activeFileContent}
   }
   /**
    * Safely parse JSON string, returning the object or the original string.
+   * Handles Qwen3.6 regression where arguments may already be a parsed object.
    */
   safeParseJSON(str) {
+    if (typeof str !== "string")
+      return str;
     try {
       return JSON.parse(str);
     } catch (e) {

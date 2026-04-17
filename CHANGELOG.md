@@ -5,7 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-04-16
+## [Unreleased] - 2026-04-17
+
+### Fixed (Qwen 3.6 업그레이드 후 tool 호출 즉시 실패 수정)
+
+- **`src/agent/AgentController.ts` `safeParseJSON` 타입 가드 추가**
+  - Qwen 3.6이 일부 응답에서 `tool_calls[].function.arguments`를 이미 파싱된 **객체**로 반환하는 회귀 대응.
+  - 기존 로직은 `JSON.parse(object)` → `"[object Object]"` 파싱 실패 → `{ raw: "[object Object]" }` 폴백으로 전달되어 도구가 빈 인자로 호출되고 즉시 실패하던 문제 해결.
+  - `typeof str !== 'string'`이면 입력을 그대로 반환하는 가드 한 줄. 문자열 경로는 기존 `JSON.parse` 동작 유지.
+- **도구 인자 진단 로그 2곳 추가** (`AgentController.ts`)
+  - `[Agent] tool_call arguments type:` — native `tool_calls` 응답의 arguments 타입/값을 런타임 확인.
+  - `[Agent] executing tool:` — 도구 실행 직전 최종 args(JSON)를 확인.
+- **회귀 테스트 3개 추가** (`__tests__/unit/agent/AgentController.test.ts`)
+  - (a) string JSON argument 경로 / (b) object argument 경로(Qwen 3.6 시뮬레이션) / (c) 비JSON string → `{ raw }` 폴백 경로 각각 검증.
+  - 결과: 29 passed / 0 failed, `tsc --noEmit` 무오류, esbuild 번들 성공.
+
+### Changed (채팅 답변 UI 줄간격 최적화)
+
+- **1차 튜닝** (`src/styles.css`, `src/ui/ChatView.ts`):
+  - `.message-content`의 `white-space: pre-wrap` → `normal` — 마크다운이 생성한 블록 사이의 원본 줄바꿈이 가시적 공백으로 노출되던 문제 제거.
+  - 문단 여백 `margin-bottom: 0.28em` → `0.2em`, `line-height: 1.5` → `1.4`.
+  - `p:empty { display: none }` 안전망 + `h1~h6` 커스텀 여백 + 리스트/항목 간격 축소 추가.
+  - `sanitizeDisplayContent`에 NBSP 정리(`\u00A0` → space) 및 공백만 있는 라인 제거 2줄 추가.
+- **2차 튜닝 (ChatGPT/Copilot 수준 타이트니스)**:
+  - `line-height: 1.4` → `1.35` 전역 통일.
+  - 문단 여백 `0 !important` + `p + p { margin-top: 0.5em !important }` combinator로 재구성 — 첫 문단 위/마지막 문단 아래 덤 여백을 원천 차단.
+  - 헤딩 `:first-child { margin-top: 0 }`으로 메시지 최상단 헤딩 공백 해소.
+  - `li > p { margin: 0 }`으로 Obsidian이 리스트 항목 내부에 중첩 생성하는 `<p>` 여백 방지.
+  - `p + ul / p + ol / ul + p / ol + p` 전환 간격 `0.35em`으로 균일화.
+
+### Other (이번 커밋에 함께 포함된 보류 작업)
+
+- **채팅 액션 영역 재설계** (`src/ui/ChatView.ts`, `src/agent/PromptBuilder.ts`): 초기화/디버그 버튼 → 단일 "더보기" 메뉴 + 디버그 인디케이터 배지로 전환, placeholder·rows 조정.
+- **파일 수정/추가 도구 자동 승인 모드** (`src/agent/ToolRegistry.ts`): 설정에서 `autoApplyFileChanges` 즉시 반영을 위한 `setAutoApplyFileChanges` 추가.
+- **`versions.json`**에 `0.2.2: 1.5.0` 엔트리 등록.
+
+---
+
+## [Unreleased - 이전] - 2026-04-16
 
 ### Fixed (외부 접속 빈 응답 / ECONNRESET 완전 수정 — v0.2.2 → v0.2.4)
 

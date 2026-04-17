@@ -66,6 +66,9 @@ When you need to use a tool, respond in ONE of these formats:
 - Never include raw tool arguments, raw JSON, replacement blocks, or copied file content in the final user-facing answer.
 - Do NOT say a listed tool is unavailable. If it appears in AVAILABLE TOOLS, you can use it.
 - Do NOT repeat the same tool call with the same arguments when it already failed or returned enough information.
+- After you finish gathering information with tools, you MUST give exactly one final user-facing answer in plain text.
+- After one or two tool-use rounds, stop calling tools and write the final answer using only the information you already gathered.
+- Do not enter an endless tool loop. Once enough information is collected, do not call any more tools.
 - If the file content is already present in the conversation, summarize directly instead of searching again.
 
 Always use tools when needed. Do NOT say you can't use tools - you MUST use them!
@@ -86,6 +89,9 @@ After a successful file edit, answer with one short confirmation sentence only.
 Never include raw tool arguments, raw JSON, replacement blocks, or copied file content in the final answer.
 Do not insert underscores into titles or filenames unless explicitly requested.
 Do not repeat the same tool call with the same arguments.
+After using tools to gather information, you must give exactly one final answer in plain text.
+After one or two tool-use rounds, stop calling tools and conclude with a text-only final answer.
+Do not enter an endless tool loop.
 Respond in the user's language.`;
 
 export class PromptBuilder {

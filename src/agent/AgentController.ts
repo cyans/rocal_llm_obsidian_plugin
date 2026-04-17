@@ -45,11 +45,15 @@ export type StatusCallback = (status: string) => void;
 export class AgentController {
     private static readonly MAX_REPEAT_TOOL_CALLS = 2;
     private static readonly MAX_INCOMPLETE_TOOL_RETRIES = 2;
+    private static readonly MAX_TOOL_ROUNDS = 3;
+    private static readonly FINAL_TEXT_ONLY_PROMPT =
+        '이제 도구는 더 이상 사용하지 말고, 지금까지 수집한 정보만으로 텍스트로만 최종 답변하세요. ' +
+        '반드시 한 번의 사용자용 최종 답변으로 마무리하고 추가 도구 호출은 하지 마세요.';
     private llmService: LLMService;
     private toolRegistry: ToolRegistry;
     private promptBuilder: PromptBuilder;
     private conversationHistory: ChatMessage[] = [];
-    private maxIterations: number = 30;  // 10 → 30으로 증가
+    private maxIterations: number = 8;
     private agentModeEnabled: boolean = true;
     private iterationCount: number = 0;
     private onStatus: StatusCallback | null = null;
@@ -109,6 +113,8 @@ export class AgentController {
         const toolCallCounts = new Map<string, number>();
         const executedToolResults: ExecutedToolResult[] = [];
         let incompleteToolRetryCount = 0;
+        let toolRoundCount = 0;
+        let forcedFinalResponse = false;
 
         // Build system prompt with tool definitions for better tool usage guidance
         const systemPrompt = this.promptBuilder.buildSystemPrompt(
@@ -136,7 +142,9 @@ export class AgentController {
         // ReAct loop
         while (this.iterationCount < this.maxIterations) {
             this.emitStatus('LLM 응답 대기 중...');
-            const result = await this.llmService.chat(messages, toolDefinitions);
+            const result = await this.llmService.chat(messages, toolDefinitions, {
+                toolChoice: forcedFinalResponse ? 'none' : 'auto'
+            });
             this.iterationCount++;
 
             // Check for native tool calls first, then fall back to text parsing
@@ -144,17 +152,24 @@ export class AgentController {
 
             if (this.agentModeEnabled && result.toolCalls && result.toolCalls.length > 0) {
                 // Native tool calling response
-                toolCalls = result.toolCalls.map(tc => ({
-                    id: tc.id,
-                    type: 'function' as const,
-                    function: {
-                        name: tc.function.name,
-                        arguments: this.safeParseJSON(tc.function.arguments)
-                    }
-                }));
+                toolCalls = result.toolCalls.map(tc => {
+                    console.log('[Agent] tool_call arguments type:', typeof tc.function.arguments, 'value:', tc.function.arguments);
+                    return {
+                        id: tc.id,
+                        type: 'function' as const,
+                        function: {
+                            name: tc.function.name,
+                            arguments: this.safeParseJSON(tc.function.arguments)
+                        }
+                    };
+                });
             } else if (this.agentModeEnabled && result.content) {
                 // Fallback: parse text-based tool calls
                 toolCalls = this.parseToolCalls(result.content);
+            }
+
+            if (forcedFinalResponse && toolCalls.length > 0) {
+                toolCalls = [];
             }
 
             if (toolCalls.length === 0) {
@@ -186,6 +201,15 @@ export class AgentController {
                 };
             }
 
+            if (toolRoundCount >= AgentController.MAX_TOOL_ROUNDS && !forcedFinalResponse) {
+                forcedFinalResponse = true;
+                messages.push({
+                    role: 'user',
+                    content: AgentController.FINAL_TEXT_ONLY_PROMPT
+                });
+                continue;
+            }
+
             const repeatedToolCall = this.findRepeatedToolCall(toolCalls, toolCallCounts);
             if (repeatedToolCall) {
                 const repeatedMessage =
@@ -215,6 +239,7 @@ export class AgentController {
             // Execute all tool calls and add results
             for (const toolCall of toolCalls) {
                 this.emitStatus(`도구 실행 중: ${toolCall.function.name}`);
+                console.log('[Agent] executing tool:', toolCall.function.name, 'args:', JSON.stringify(toolCall.function.arguments));
                 let toolResult: any;
                 try {
                     toolResult = await this.toolRegistry.execute(
@@ -236,6 +261,16 @@ export class AgentController {
                     toolName: toolCall.function.name,
                     args: toolCall.function.arguments,
                     result: toolResult
+                });
+            }
+
+            toolRoundCount++;
+
+            if (toolRoundCount >= AgentController.MAX_TOOL_ROUNDS && !forcedFinalResponse) {
+                forcedFinalResponse = true;
+                messages.push({
+                    role: 'user',
+                    content: AgentController.FINAL_TEXT_ONLY_PROMPT
                 });
             }
 
@@ -301,8 +336,10 @@ export class AgentController {
 
     /**
      * Safely parse JSON string, returning the object or the original string.
+     * Handles Qwen3.6 regression where arguments may already be a parsed object.
      */
-    private safeParseJSON(str: string): any {
+    private safeParseJSON(str: string | any): any {
+        if (typeof str !== 'string') return str;
         try {
             return JSON.parse(str);
         } catch {

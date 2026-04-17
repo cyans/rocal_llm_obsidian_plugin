@@ -206,11 +206,14 @@ export class ToolRegistry {
             this.register(webSearch);
         }
 
+        const autoApply = settings?.autoApplyFileChanges ?? false;
+
         if (settings?.tools.writeToFile ?? true) {
             const writeToFile = new WriteToFileTool(
                 this.app.vault,
                 modal
             );
+            writeToFile.setAutoConfirm(autoApply);
             this.register(writeToFile);
         }
 
@@ -219,6 +222,7 @@ export class ToolRegistry {
                 this.app.vault,
                 modal
             );
+            replaceInFile.setAutoConfirm(autoApply);
             this.register(replaceInFile);
         }
 
@@ -256,6 +260,22 @@ export class ToolRegistry {
         const webSearch = this.getTool('web_search') as WebSearchTool;
         if (webSearch) {
             webSearch.setBraveAPIKey(apiKey);
+        }
+    }
+
+    /**
+     * 파일 수정/추가 도구의 자동 승인 모드 업데이트
+     * 설정 변경 시 호출하여 재등록 없이 즉시 반영
+     */
+    setAutoApplyFileChanges(enabled: boolean): void {
+        const writeToFile = this.getTool('write_to_file') as WriteToFileTool | undefined;
+        if (writeToFile) {
+            writeToFile.setAutoConfirm(enabled);
+        }
+
+        const replaceInFile = this.getTool('replace_in_file') as ReplaceInFileTool | undefined;
+        if (replaceInFile) {
+            replaceInFile.setAutoConfirm(enabled);
         }
     }
 }

@@ -4,7 +4,7 @@
  * @MX:NOTE: ChatGPT 스타일 미니멀 디자인, CSS 클래스 기반 스타일링
  */
 
-import { ItemView, WorkspaceLeaf, MarkdownRenderer } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, Menu, setIcon } from 'obsidian';
 import { TFile } from 'obsidian';
 import VaultAgentPlugin from '../main';
 import { FileBadge } from '../components/FileBadge';
@@ -16,8 +16,8 @@ export class ChatView extends ItemView {
     private messagesEl: HTMLElement;
     private inputEl: HTMLTextAreaElement;
     private sendButtonEl: HTMLButtonElement;
-    private clearButtonEl: HTMLButtonElement;
     private debugMode: boolean = false;
+    private debugIndicatorEl: HTMLElement;
     private fileBadgeContainer: HTMLElement;
     private fileBadge: FileBadge | null = null;
     private activeFilePath: string | null = null;
@@ -73,33 +73,28 @@ export class ChatView extends ItemView {
             () => this.clearActiveFile()
         );
 
-        // 버튼 컨테이너
+        // 입력 보조 액션
         const buttonContainer = composerEl.createDiv({ cls: 'chat-actions' });
+        this.debugIndicatorEl = buttonContainer.createDiv({ cls: 'chat-debug-indicator' });
+        this.debugIndicatorEl.textContent = 'Debug';
 
-        // 왼쪽 버튼 그룹
-        const leftButtons = buttonContainer.createDiv({ cls: 'left-buttons' });
-
-        // 대화 초기화 버튼
-        this.clearButtonEl = leftButtons.createEl('button', {
-            text: '초기화'
+        const menuButton = buttonContainer.createEl('button', {
+            cls: 'chat-icon-button chat-more-button',
+            attr: {
+                'aria-label': '채팅 옵션',
+                title: '채팅 옵션'
+            }
         });
-        this.clearButtonEl.onclick = () => this.clearConversation();
-
-        // 디버그 모드 토글
-        const debugButton = leftButtons.createEl('button', {
-            text: '디버그'
-        });
-        debugButton.onclick = () => {
-            this.debugMode = !this.debugMode;
-            debugButton.textContent = this.debugMode ? '디버그 ON' : '디버그';
-        };
+        setIcon(menuButton, 'ellipsis');
+        menuButton.onclick = (event) => this.openChatActionsMenu(event);
+        this.updateDebugIndicator();
 
         // 입력창
         this.inputEl = composerEl.createEl('textarea', {
             cls: 'chat-input',
             attr: {
-                placeholder: '메시지를 입력하세요... (Shift+Enter: 줄바꿈)',
-                rows: '1'
+                placeholder: '메시지를 입력하세요...',
+                rows: '4'
             }
         });
 
@@ -121,10 +116,6 @@ export class ChatView extends ItemView {
         composerMeta.createSpan({
             cls: 'chat-composer-model',
             text: this.plugin.settings.model || 'model'
-        });
-        composerMeta.createSpan({
-            cls: 'chat-composer-hint',
-            text: 'Shift+Enter 줄바꿈'
         });
 
         const sendButtonContainer = composerFooter.createDiv({ cls: 'chat-send-container' });
@@ -314,6 +305,8 @@ export class ChatView extends ItemView {
         sanitized = sanitized.replace(/<function=[\s\S]*$/gi, '').trim();
         sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
         sanitized = sanitized.replace(/[ \t]+\n/g, '\n');
+        sanitized = sanitized.replace(/\u00A0/g, ' ');
+        sanitized = sanitized.replace(/^[ \t]+$/gm, '');
 
         if (!sanitized) {
             return '도구를 사용해 요청을 처리했습니다.';
@@ -534,6 +527,39 @@ export class ChatView extends ItemView {
             hour: '2-digit',
             minute: '2-digit'
         }).format(date);
+    }
+
+    private openChatActionsMenu(event: MouseEvent): void {
+        const menu = new Menu();
+        menu.addItem((item) => {
+            item
+                .setTitle('새 대화')
+                .setIcon('rotate-ccw')
+                .onClick(() => this.clearConversation());
+        });
+        menu.addItem((item) => {
+            item
+                .setTitle(this.debugMode ? '디버그 모드 끄기' : '디버그 모드 켜기')
+                .setIcon('bug')
+                .setChecked(this.debugMode)
+                .onClick(() => this.toggleDebugMode());
+        });
+        menu.showAtMouseEvent(event);
+    }
+
+    private toggleDebugMode(): void {
+        this.debugMode = !this.debugMode;
+        this.updateDebugIndicator();
+    }
+
+    private updateDebugIndicator(): void {
+        if (!this.debugIndicatorEl) {
+            return;
+        }
+
+        this.debugIndicatorEl.toggleClass('is-active', this.debugMode);
+        this.debugIndicatorEl.setText(this.debugMode ? 'Debug on' : 'Debug');
+        this.debugIndicatorEl.setAttribute('aria-hidden', this.debugMode ? 'false' : 'true');
     }
 
     /**
