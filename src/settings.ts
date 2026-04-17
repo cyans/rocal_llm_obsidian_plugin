@@ -35,8 +35,8 @@ export class VaultAgentSettingTab extends PluginSettingTab {
         // Model 설정
         new Setting(containerEl)
             .setName('Model')
-            .setDesc('Model name for Qwen 3.5')
-            .addText(text => text.setPlaceholder('qwen3.5:latest')
+            .setDesc('Model name for Qwen 3.6')
+            .addText(text => text.setPlaceholder('qwen3.6:latest')
                 .setValue(this.plugin.settings.model)
                 .onChange(async (value) => {
                     this.plugin.settings.model = value;
@@ -91,6 +91,24 @@ export class VaultAgentSettingTab extends PluginSettingTab {
                     this.plugin.settings.agentMode = value;
                     await this.persistSettings();
                 }));
+
+        // Auto-Apply File Changes 토글
+        // 활성화 시 write_to_file / replace_in_file 도구가 승인 다이얼로그 없이 바로 적용
+        new Setting(containerEl)
+            .setName('Auto-Apply File Changes')
+            .setDesc(
+                'Skip the confirmation dialog when the agent creates, overwrites, or edits notes. ' +
+                'WARNING: The agent will modify your vault without asking. Keep off unless you trust the agent.'
+            )
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.autoApplyFileChanges)
+                .onChange(async (value) => {
+                    this.plugin.settings.autoApplyFileChanges = value;
+                    await this.persistSettings();
+                    // 재등록 없이 활성 도구 인스턴스에 즉시 반영
+                    this.plugin.toolRegistry?.setAutoApplyFileChanges(value);
+                })
+            );
 
         // Tools 토글 섹션
         containerEl.createEl('h3', { text: 'Tool Toggles' });

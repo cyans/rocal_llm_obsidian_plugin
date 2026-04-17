@@ -418,7 +418,7 @@ var VaultAgentSettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.apiUrl = value;
       await this.persistSettings();
     }));
-    new import_obsidian.Setting(containerEl).setName("Model").setDesc("Model name for Qwen 3.5").addText((text) => text.setPlaceholder("qwen3.5:latest").setValue(this.plugin.settings.model).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName("Model").setDesc("Model name for Qwen 3.6").addText((text) => text.setPlaceholder("qwen3.6:latest").setValue(this.plugin.settings.model).onChange(async (value) => {
       this.plugin.settings.model = value;
       await this.persistSettings();
     }));
@@ -444,6 +444,16 @@ var VaultAgentSettingTab = class extends import_obsidian.PluginSettingTab {
       this.plugin.settings.agentMode = value;
       await this.persistSettings();
     }));
+    new import_obsidian.Setting(containerEl).setName("Auto-Apply File Changes").setDesc(
+      "Skip the confirmation dialog when the agent creates, overwrites, or edits notes. WARNING: The agent will modify your vault without asking. Keep off unless you trust the agent."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.autoApplyFileChanges).onChange(async (value) => {
+        var _a;
+        this.plugin.settings.autoApplyFileChanges = value;
+        await this.persistSettings();
+        (_a = this.plugin.toolRegistry) == null ? void 0 : _a.setAutoApplyFileChanges(value);
+      })
+    );
     containerEl.createEl("h3", { text: "Tool Toggles" });
     new import_obsidian.Setting(containerEl).setName("Vault Search").setDesc("Search vault for relevant notes").addToggle((toggle) => toggle.setValue(this.plugin.settings.tools.vaultSearch).onChange(async (value) => {
       this.plugin.settings.tools.vaultSearch = value;
@@ -533,7 +543,7 @@ var VaultAgentSettingTab = class extends import_obsidian.PluginSettingTab {
 // src/types.ts
 var DEFAULT_SETTINGS = {
   apiUrl: "http://localhost:11434/v1",
-  model: "qwen3.5:35b",
+  model: "qwen3.6:35b",
   apiKey: "",
   maxTokens: 4096,
   temperature: 0.7,
@@ -542,6 +552,8 @@ var DEFAULT_SETTINGS = {
   // Brave Search API 키 (없으면 SearXNG 사용)
   allowInsecureTls: false,
   // 기본값: TLS 검증 활성화
+  autoApplyFileChanges: false,
+  // 기본값: 승인 필요 (안전)
   tools: {
     vaultSearch: true,
     webSearch: true,
@@ -2748,6 +2760,9 @@ var ReplaceInFileTool = class extends BaseTool {
     };
     this.autoConfirm = false;
     this.createBackups = false;
+    // @MX:NOTE: 백업 시 사용된 실제 경로를 보존하여 호출자가 동일 경로를 재구성할 필요 없게 함.
+    // getBackupPath()는 매번 timestamp가 갱신되어 비결정적이므로, 생성된 마지막 경로를 기록.
+    this.lastBackupPath = null;
     this.vault = vault;
     this.modal = modal;
   }
@@ -2863,9 +2878,16 @@ ${preview}`
     const backupPath = this.getBackupPath(file.path);
     try {
       await this.vault.create(backupPath, content);
+      this.lastBackupPath = backupPath;
     } catch (error) {
       console.warn(`Failed to create backup: ${backupPath}`, error);
     }
+  }
+  /**
+   * Get path of most recently created backup. Returns null if no backup created yet.
+   */
+  getLastBackupPath() {
+    return this.lastBackupPath;
   }
   /**
    * Get backup file path.
@@ -3616,7 +3638,7 @@ var ToolRegistry = class {
    * @param llmService LLM 서비스 인스턴스 (선택적, VaultSummarizeTool용)
    */
   registerAllTools(settings, llmService) {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     this.clear();
     const modal = new SimpleModalAdapter();
     const httpAdapter = createRequestAdapter(1e4);
@@ -3634,35 +3656,38 @@ var ToolRegistry = class {
       }
       this.register(webSearch);
     }
-    if ((_c = settings == null ? void 0 : settings.tools.writeToFile) != null ? _c : true) {
+    const autoApply = (_c = settings == null ? void 0 : settings.autoApplyFileChanges) != null ? _c : false;
+    if ((_d = settings == null ? void 0 : settings.tools.writeToFile) != null ? _d : true) {
       const writeToFile = new WriteToFileTool(
         this.app.vault,
         modal
       );
+      writeToFile.setAutoConfirm(autoApply);
       this.register(writeToFile);
     }
-    if ((_d = settings == null ? void 0 : settings.tools.replaceInFile) != null ? _d : true) {
+    if ((_e = settings == null ? void 0 : settings.tools.replaceInFile) != null ? _e : true) {
       const replaceInFile = new ReplaceInFileTool(
         this.app.vault,
         modal
       );
+      replaceInFile.setAutoConfirm(autoApply);
       this.register(replaceInFile);
     }
-    if ((_e = settings == null ? void 0 : settings.tools.youtubeTranscript) != null ? _e : true) {
+    if ((_f = settings == null ? void 0 : settings.tools.youtubeTranscript) != null ? _f : true) {
       const ytTranscript = new YouTubeTranscriptTool(
         httpAdapter,
         this.app.vault
       );
       this.register(ytTranscript);
     }
-    if ((_f = settings == null ? void 0 : settings.tools.vaultReadContents) != null ? _f : true) {
+    if ((_g = settings == null ? void 0 : settings.tools.vaultReadContents) != null ? _g : true) {
       const vaultReadContents = new VaultReadContentsTool(
         this.app.vault,
         this.app.metadataCache
       );
       this.register(vaultReadContents);
     }
-    if ((_g = settings == null ? void 0 : settings.tools.vaultSummarize) != null ? _g : true) {
+    if ((_h = settings == null ? void 0 : settings.tools.vaultSummarize) != null ? _h : true) {
       if (llmService) {
         const vaultSummarize = new VaultSummarizeTool(llmService);
         this.register(vaultSummarize);
@@ -3679,6 +3704,20 @@ var ToolRegistry = class {
     const webSearch = this.getTool("web_search");
     if (webSearch) {
       webSearch.setBraveAPIKey(apiKey);
+    }
+  }
+  /**
+   * 파일 수정/추가 도구의 자동 승인 모드 업데이트
+   * 설정 변경 시 호출하여 재등록 없이 즉시 반영
+   */
+  setAutoApplyFileChanges(enabled) {
+    const writeToFile = this.getTool("write_to_file");
+    if (writeToFile) {
+      writeToFile.setAutoConfirm(enabled);
+    }
+    const replaceInFile = this.getTool("replace_in_file");
+    if (replaceInFile) {
+      replaceInFile.setAutoConfirm(enabled);
     }
   }
 };

@@ -59,12 +59,14 @@ describe('AgentController', () => {
     beforeEach(() => {
         mockSettings = {
             apiUrl: 'http://localhost:11434/v1',
-            model: 'qwen3.5:latest',
+            model: 'qwen3.6:latest',
             apiKey: '',
             maxTokens: 4096,
             temperature: 0.7,
             agentMode: true,
             braveApiKey: '', // Brave Search API 키
+            allowInsecureTls: false,
+            autoApplyFileChanges: false,
             tools: {
                 vaultSearch: true,
                 webSearch: true,
@@ -438,6 +440,28 @@ title: Test
             expect(result.content).toBe('정리한 내용을 현재 노트에 반영했습니다.');
             expect(agentController.getIterationCount()).toBe(2);
         });
+
+        it('should force a final text-only answer after too many tool rounds', async () => {
+            const chatSpy = jest.spyOn(llmService, 'chat')
+                .mockResolvedValueOnce(toolCallResult('vault_search', { query: 'loop-1' }))
+                .mockResolvedValueOnce(toolCallResult('vault_search', { query: 'loop-2' }))
+                .mockResolvedValueOnce(toolCallResult('vault_search', { query: 'loop-3' }))
+                .mockResolvedValueOnce(textResult('최종 답변입니다.'));
+
+            const result = await agentController.processMessage('계속 찾아봐');
+
+            expect(result.content).toBe('최종 답변입니다.');
+            expect(chatSpy).toHaveBeenLastCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        role: 'user',
+                        content: expect.stringContaining('이제 도구는 더 이상 사용하지 말고')
+                    })
+                ]),
+                expect.any(Array),
+                expect.objectContaining({ toolChoice: 'none' })
+            );
+        });
     });
 
     describe('setMaxIterations', () => {
@@ -507,7 +531,11 @@ title: Test
             agentController.setAgentMode(false);
             await agentController.processMessage('Hello');
 
-            expect(chatSpy).toHaveBeenCalledWith(expect.any(Array), []);
+            expect(chatSpy).toHaveBeenCalledWith(
+                expect.any(Array),
+                [],
+                expect.objectContaining({ toolChoice: 'auto' })
+            );
         });
     });
 });

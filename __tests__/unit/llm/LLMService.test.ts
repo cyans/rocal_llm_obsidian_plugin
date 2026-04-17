@@ -24,13 +24,14 @@ describe('LLMService', () => {
 
         mockSettings = {
             apiUrl: 'http://localhost:11434/v1',
-            model: 'qwen3.5:latest',
+            model: 'qwen3.6:latest',
             apiKey: '',
             maxTokens: 4096,
             temperature: 0.7,
             agentMode: true,
             braveApiKey: '', // Brave Search API 키
             allowInsecureTls: false,
+            autoApplyFileChanges: false,
             tools: {
                 vaultSearch: true,
                 webSearch: true,

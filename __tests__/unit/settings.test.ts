@@ -42,7 +42,7 @@ describe('VaultAgentSettingTab', () => {
     describe('Settings Persistence', () => {
         it('should have default settings structure', () => {
             expect(mockPlugin.settings.apiUrl).toBe('http://localhost:11434/v1');
-            expect(mockPlugin.settings.model).toBe('qwen3.5:35b');
+            expect(mockPlugin.settings.model).toBe('qwen3.6:35b');
             expect(mockPlugin.settings.agentMode).toBe(true);
             expect(mockPlugin.settings.tools.vaultSearch).toBe(true);
             expect(mockPlugin.settings.tools.webSearch).toBe(true);
