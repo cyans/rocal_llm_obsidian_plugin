@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `li > p { margin: 0 }`으로 Obsidian이 리스트 항목 내부에 중첩 생성하는 `<p>` 여백 방지.
   - `p + ul / p + ol / ul + p / ol + p` 전환 간격 `0.35em`으로 균일화.
 
+### Fixed (응답에 중국어/일본어 문자 혼입 방지)
+
+- **시스템 프롬프트 언어 규칙 강화** (`src/agent/PromptBuilder.ts`): `DEFAULT_SYSTEM_INSTRUCTIONS`와 `DEFAULT_SYSTEM_INSTRUCTIONS_MINIMAL` 상단에 `## LANGUAGE RULE (STRICT — READ FIRST)` 블록 추가. 간체/번체 한자·히라가나·가타카나 사용 금지, 고유명사·영문 약어·코드·인용만 예외 허용. 기존 `"Respond in the user's language."`은 한국어 강제 문구로 교체.
+- Qwen 3.6(중국어 기반 모델) 특성상 약한 언어 지시로는 샘플링 단계에서 외래 문자가 누수되던 문제 해결.
+
 ### Other (이번 커밋에 함께 포함된 보류 작업)
 
 - **채팅 액션 영역 재설계** (`src/ui/ChatView.ts`, `src/agent/PromptBuilder.ts`): 초기화/디버그 버튼 → 단일 "더보기" 메뉴 + 디버그 인디케이터 배지로 전환, placeholder·rows 조정.
