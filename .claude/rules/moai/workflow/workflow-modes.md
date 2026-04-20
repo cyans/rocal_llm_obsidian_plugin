@@ -42,7 +42,7 @@ Success Criteria:
 - Characterization tests passing
 - Behavior snapshots stable (no regression)
 - 85%+ code coverage achieved
-- TRUST 5 gates passed (see @.claude/rules/moai/core/moai-constitution.md)
+- TRUST 5 gates passed (see .claude/rules/moai/core/moai-constitution.md)
 
 ## TDD Mode (default)
 
@@ -69,7 +69,7 @@ Success Criteria:
 - All tests passing (RED-GREEN-REFACTOR complete)
 - Minimum coverage per commit: 80% (configurable)
 - No test written after implementation code
-- TRUST 5 gates passed (see @.claude/rules/moai/core/moai-constitution.md)
+- TRUST 5 gates passed (see .claude/rules/moai/core/moai-constitution.md)
 
 ### Brownfield Enhancement (for existing codebases)
 
@@ -106,6 +106,20 @@ Skip conditions:
 - Single-file changes under 50 lines
 - Bug fixes with reproduction test (already minimal by Rule 4)
 - Changes explicitly approved in annotation cycle (user reviewed and accepted the approach during Plan Phase annotation iterations)
+
+## Drift Guard
+
+After each methodology cycle (DDD IMPROVE or TDD REFACTOR), a drift check runs automatically:
+
+1. Compares planned files (from tasks.md) against actual modifications
+2. Calculates scope drift percentage
+3. Logs results to progress.md
+4. Triggers re-planning if cumulative drift exceeds 30%
+
+This check is non-blocking for drift <= 30%. It warns but does not stop implementation.
+For drift > 30%, it triggers the existing Re-planning Gate (Phase 2.7) for scope review.
+
+The drift guard applies to both DDD and TDD modes identically.
 
 ## Team Mode Methodology
 

@@ -1,3 +1,8 @@
+---
+description: Core constitutional principles for MoAI orchestrator - HARD rules that must always be followed
+globs:
+---
+
 # MoAI Constitution
 
 Core principles that MUST always be followed. These are HARD rules.
@@ -40,6 +45,17 @@ Rules:
 - XML tags are reserved for agent-to-agent data transfer
 - Use Markdown for all user-facing communication
 - Format code blocks with appropriate language identifiers
+
+## Worktree Isolation
+
+When spawning agents with `isolation: "worktree"`, prompts must use relative paths.
+
+Rules:
+- Use project-root-relative paths for all write-target files in agent prompts
+- Do NOT include absolute paths to the main project directory in agent prompts
+- Do NOT include `cd /absolute/path &&` in Bash commands within agent prompts
+- The agent's CWD is automatically set to the worktree root by Claude Code
+- See .claude/rules/moai/workflow/worktree-integration.md for complete rules
 
 ## Quality Gates
 
@@ -116,8 +132,26 @@ Rules:
 - Store lessons at auto-memory `lessons.md` (path: `~/.claude/projects/{project-hash}/memory/lessons.md`)
 - Each lesson entry: category, incorrect pattern, correct approach, date added
 - Review relevant lessons before starting tasks in the same domain
-- Lesson categories: architecture, testing, naming, workflow, security, performance
+- Lesson categories: architecture, testing, naming, workflow, security, performance, hardcoding
 - Maximum 50 active lessons per project; archive older entries to `lessons-archive.md` in the same directory
 - Lessons are additive: never overwrite a lesson, append corrections as updates
 - To supersede a lesson, add `[SUPERSEDED by #{new_lesson_number}]` prefix to the old entry
 - Session start: scan lessons for patterns matching current task domain
+
+Auto-Capture Triggers (SPEC-SLQG-001):
+- When a fix/refactor commit completes, check if the change matches a known anti-pattern category
+- If match found, propose a lesson entry to the user via AskUserQuestion
+- Auto-generated lesson entries include: category, incorrect pattern, correct approach, date, tags
+- Duplicate detection: check existing lessons before proposing new entry
+
+Domain Matching Algorithm:
+- Extract domain keywords from current SPEC (title, scope, modified file paths)
+- Match lesson categories against extracted keywords
+- Match lesson tags against modified package names
+- Relevance score: categories match (weight 2) + tags match (weight 1)
+- Select top 5 lessons by relevance score, then by recency
+
+Integration Points:
+- run.md Phase 1: Load filtered lessons into agent context before implementation (see Lessons Loading section)
+- /moai fix completion: Propose lesson capture after successful fix
+- /moai loop completion: Propose lesson capture after successful iteration cycle

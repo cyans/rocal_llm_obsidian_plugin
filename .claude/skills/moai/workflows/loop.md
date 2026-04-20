@@ -58,6 +58,16 @@ Step 2 - Memory Pressure Check (if --memory-check enabled):
   - Save proactive checkpoint to $CLAUDE_PROJECT_DIR/.moai/cache/loop-snapshots/memory-pressure.json
   - Warn user about memory pressure
   - Suggest resuming with /moai:loop --resume memory-pressure
+- Physical memory check (if memory_guard.enabled in quality.yaml):
+  - Linux: Read MemAvailable from `free -m`
+  - macOS: Estimate from `vm_stat` pages free * page_size
+  - If available_mb < emergency_threshold_mb:
+    - Save checkpoint to $CLAUDE_PROJECT_DIR/.moai/cache/loop-snapshots/memory-emergency.json
+    - Exit loop with message: "System memory critically low ({available_mb}MB < {emergency_threshold_mb}MB). Checkpoint saved."
+    - Suggest: /moai:loop --resume memory-emergency
+  - If available_mb < adaptive_threshold_mb:
+    - Switch Step 3 diagnostics to module-split execution for remaining iterations
+    - Log: "Low memory detected ({available_mb}MB). Switching to module-split test execution."
 - If memory-safe limit reached (50 iterations): Exit with checkpoint
 
 Step 3 - Parallel Diagnostics:
@@ -66,7 +76,7 @@ Step 3 - Parallel Diagnostics:
 - Tool 2: AST-grep scan with sgconfig.yml rules
 - Tool 3: Test runner for detected language (pytest, jest, go test, cargo test)
 - Tool 4: Coverage measurement (coverage.py, c8, go test -cover, cargo tarpaulin)
-- Collect results using TaskOutput for each background task
+- Collect results using Read on each background task's output file path
 - Aggregate into unified diagnostic report with metrics: error count, warning count, test pass rate, coverage percentage
 
 If --sequential flag: Run LSP, then AST-grep, then Tests, then Coverage sequentially.
@@ -87,7 +97,7 @@ Step 5.5 - Pre-Fix MX Context Scan:
 - @MX:TODO items: Match against current issues for resolution tracking
 - Output: MX context map included in Step 6 fix agent prompts
 - Skip if no @MX tags found in target files
-- See @.claude/rules/moai/workflow/mx-tag-protocol.md for tag type definitions
+- See .claude/rules/moai/workflow/mx-tag-protocol.md for tag type definitions
 
 Step 6 - Fix Execution:
 - [HARD] Before each fix: TaskUpdate to change item to in_progress
@@ -117,7 +127,7 @@ Step 7.5 - MX Tag Check:
   - Unresolved issues: Keep @MX:TODO
 - Remove resolved @MX:TODO tags for fixed issues
 - Generate MX_TAG_REPORT with tags added/removed/updated
-- See @.claude/rules/moai/workflow/mx-tag-protocol.md for tag rules
+- See .claude/rules/moai/workflow/mx-tag-protocol.md for tag rules
 
 Step 8 - Snapshot Save:
 - Save iteration snapshot to $CLAUDE_PROJECT_DIR/.moai/cache/loop-snapshots/
@@ -174,6 +184,7 @@ Files:
 - iteration-001.json, iteration-002.json, etc. (per-iteration snapshots)
 - latest.json (symlink to most recent)
 - memory-pressure.json (proactive checkpoint on memory pressure)
+- memory-emergency.json (emergency checkpoint when physical memory critically low)
 
 Loop state file: $CLAUDE_PROJECT_DIR/.moai/cache/.moai_loop_state.json
 
