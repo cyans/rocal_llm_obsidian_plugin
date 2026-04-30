@@ -1764,6 +1764,23 @@ ${newKeywords.join(" ")}
       const remaining = paragraphs.slice(startIdx);
       normalized = remaining.join("\n\n").trim();
     }
+    const trailingParagraphs = normalized.split(/\n{2,}/);
+    let endIdx = trailingParagraphs.length;
+    for (let i = trailingParagraphs.length - 1; i >= 0; i--) {
+      const para = trailingParagraphs[i].trim();
+      if (!para) {
+        endIdx = i;
+        continue;
+      }
+      const firstLine = para.split("\n")[0].trim();
+      const isTrailingMeta = _AgentController.TRAILING_META_PATTERNS.some((p) => p.test(firstLine));
+      if (isTrailingMeta) {
+        endIdx = i;
+      } else {
+        break;
+      }
+    }
+    normalized = trailingParagraphs.slice(0, endIdx).join("\n\n").trim();
     normalized = normalized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "").trim();
     normalized = normalized.replace(/<tool>[\s\S]*?<\/tool>/gi, "").trim();
     normalized = normalized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, "").trim();
@@ -2085,6 +2102,46 @@ _AgentController.FINAL_ANSWER_MARKERS = [
   /\n+\s*Final\s*answer\s*[:：]\s*\n?/i,
   /\n+\s*###\s*답변\s*\n+/i,
   /\n+\s*---+\s*\n+(?=\S)/
+];
+// @MX:NOTE: 응답 뒤쪽에 붙는 영문 자기-narration 패턴 (Qwen 3.6 thinking 누출)
+// 단락 단위로 끝에서부터 역방향 검사하며, 첫 번째 비-메타 단락에서 정지
+_AgentController.TRAILING_META_PATTERNS = [
+  // I-statements (Qwen이 자주 emit)
+  /^I (will|'ll|am|'m|need|should|have|'ve|'d)\s/i,
+  // The user / The prompt — 메타 자기참조 문구 (내용 명사는 제외)
+  /^The (user|prompt)\b/i,
+  /^The (response|answer)\s+(is|covers|includes|was|will)\b/i,
+  /^User('s)?\s+(prompt|request|message|asked|wants|provided)/i,
+  // 모델이 자신의 출력물을 자체 평가하는 메타 문장
+  /^The (summary|response|answer|output|translation|explanation)\s+(covers|addresses|includes|captures|provides|contains|follows|meets)\b/i,
+  // Final/One/Self-correction
+  /^(Final|One)\s+(check|detail|polish|plan|note|small|thought)/i,
+  /^Self[\s-]?correction/i,
+  // Acknowledgements
+  /^(Looks?|Sounds?)\s+(good|perfect|great|fine|right)/i,
+  /^Ready[.\s!]/i,
+  /^Okay[,.\s]/i,
+  /^Done[.\s!]/i,
+  // Wait/Let me/Let's
+  /^(Wait|Let me|Let's)[,.\s]/i,
+  // Structure markers (often re-emit response plan)
+  /^Response\s+Structure\s*:/i,
+  /^Step\s+\d+\s*:/i,
+  /^Key\s+(Points?|Terms?|Takeaways?)\s*:/i,
+  /^(Final|My)\s+(plan|polish|response|answer|check)\s*:/i,
+  /^Concept\s*:/i,
+  /^(Title|Introduction|Section\s+\d|Conclusion|Overview)\s*:/i,
+  // Negative/Yes meta-statements
+  /^(No tool calls needed|Just text output|Proceeding|Generating|Ready to)/i,
+  // AI self-reference
+  /\bI am an AI\b/i,
+  /\bAs an AI\b/i,
+  // Common Qwen contract phrases anywhere in line
+  /\b(I|I'?ll)\s+(will\s+)?(generate|produce|write|output|create)\s+the\s+(response|answer|summary|file|content)/i,
+  /\bproceed(ing)?\s+(with|to)\b/i,
+  // Self-talk acknowledgements
+  /^This\s+(looks|seems|is)\s+(good|perfect|complete|fine)/i,
+  /^All\s+(good|set|done|right)/i
 ];
 // @MX:NOTE: 선행 메타 산문 패턴 — 답변 앞에 붙는 추론 시작 문구
 // 단락 단위로 앞에서부터만 검사하며, 중간 내용은 절대 제거하지 않음

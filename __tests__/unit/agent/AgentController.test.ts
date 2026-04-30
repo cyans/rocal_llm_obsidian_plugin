@@ -652,6 +652,97 @@ title: Test
             // 결과는 빈 문자열이거나 매우 짧은 내용이어야 함
             expect(result.length).toBeLessThan(input.length);
         });
+
+        it('11. 트레일링 영문 메타 prose strip — 실제 0.2.5 누출 케이스', () => {
+            const input = `### 💡 핵심 인사이트
+> **"삶의 질은 내가 어떤 것을 추구하느냐에 달려 있다. 진정한 자유는 결과를 집착하지 않고, 오직 대의와 사랑, 지혜, 용기 안에서 살 수 있을 때 찾아온다."**
+
+#키워드: #내면근력 #마인드셋 #자기중심성 #두려움 #자아실현 #뇌과학 #시각화 #자기확언 #성장마인드셋
+
+The summary covers all the main points provided in the text. It is structured, easy to read, and captures the essence of the book notes.
+
+I will output the response now.
+The user's prompt is simply "이 노트 내용 요약해 봐".
+I will use the markdown format for clarity.
+
+Final check on language: Korean.
+Final check on constraints: No internal monologue in output.
+
+Ready.
+
+Looks good.
+Let's go.`;
+            const expected = `### 💡 핵심 인사이트
+> **"삶의 질은 내가 어떤 것을 추구하느냐에 달려 있다. 진정한 자유는 결과를 집착하지 않고, 오직 대의와 사랑, 지혜, 용기 안에서 살 수 있을 때 찾아온다."**
+
+#키워드: #내면근력 #마인드셋 #자기중심성 #두려움 #자아실현 #뇌과학 #시각화 #자기확언 #성장마인드셋`;
+            const result = normalize(input);
+            expect(result).toBe(expected);
+        });
+
+        it('12. 트레일링 strip false positive 방지 — 정상 영문 마지막 단락 보존', () => {
+            const input = `## English Summary
+
+The book argues three main points:
+- Point one
+- Point two
+- Point three
+
+This is a clear and concise overview that the user requested.`;
+            const result = normalize(input);
+            // "This is a clear..." — TRAILING_META_PATTERNS 중 /^This\s+(looks|seems|is)\s+(good|perfect|complete|fine)/ 는
+            // "clear"가 메타 키워드(good/perfect/complete/fine)에 없으므로 매칭 안 됨 → 보존되어야 함
+            expect(result).toBe(input);
+        });
+
+        it('13. 단일 짧은 Ready. 트레일링 제거', () => {
+            const input = `## 답변
+
+여기 답변 본문입니다.
+
+Ready.`;
+            const expected = `## 답변
+
+여기 답변 본문입니다.`;
+            const result = normalize(input);
+            expect(result).toBe(expected);
+        });
+
+        it('14. 트레일링 Looks good. 제거', () => {
+            const input = `네, 처리 완료했습니다.
+
+Looks good.`;
+            const expected = `네, 처리 완료했습니다.`;
+            const result = normalize(input);
+            expect(result).toBe(expected);
+        });
+
+        it('15. 다중 트레일링 메타 단락 일괄 제거', () => {
+            const input = `답변 본문입니다.
+
+Final plan: First do A, then B.
+
+I will write the response now.
+
+Ready.`;
+            const expected = `답변 본문입니다.`;
+            const result = normalize(input);
+            expect(result).toBe(expected);
+        });
+
+        it('16. 본문 중간 메타 패턴은 보존 — 첫 비-메타 단락에서 strip 중단', () => {
+            const input = `답변 시작.
+
+I will explain step by step.
+
+답변 계속됩니다.
+
+추가 정보입니다.`;
+            // 마지막 단락 "추가 정보입니다."는 메타 아님 → 역방향 스캔 즉시 중단
+            // 결과: 모든 단락 보존
+            const result = normalize(input);
+            expect(result).toBe(input);
+        });
     });
 
     describe('agent mode', () => {

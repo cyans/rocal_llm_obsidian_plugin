@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.6] - 2026-04-30
+
+### Fixed (Qwen 3.6 thinking 트레일링 누수 차단 — Step C 추가)
+
+- **`src/agent/AgentController.ts:normalizeFinalContent`에 Step C 신설** (4.5단계로 Step B와 도구 태그 cleanup 사이에 삽입)
+  - 0.2.5의 Step A/B는 응답 **선두**의 메타 prose만 다뤘기 때문에, Qwen 3.6이 답변 **뒤에** 자기-narration을 길게 붙이는 케이스를 잡지 못하던 문제 해결.
+  - 단락(`\n{2,}` split)을 끝에서부터 역방향 스캔하며 `TRAILING_META_PATTERNS`에 일치하는 영문 메타 단락만 제거. **첫 번째 비-메타 단락을 만나면 즉시 중단** → 본문 중간은 절대 안 건드림.
+  - 단락 첫 줄 기준으로 패턴 검사 (다중 줄 단락은 첫 줄이 메타면 단락 전체 제거).
+- **`TRAILING_META_PATTERNS` 상수 신규 — 27 regex 패턴**
+  - I-statements: `I will`, `I'll`, `I am`, `I'm`, `I need`, `I should`, `I have`, `I've`, `I'd`
+  - 사용자/응답 자기 참조: `The user`, `The prompt`, `The response is/covers/addresses` 등 (false positive 방지를 위해 narrow하게 한정)
+  - 자기-correction/check: `Final check`, `Final polish`, `Self-correction`, `One detail`, `Final plan`, `Final note`
+  - Acknowledgements: `Looks good`, `Sounds good`, `Ready.`, `Okay,`, `Done.`
+  - Wait/Let me/Let's
+  - Structure 재emit: `Response Structure:`, `Step N:`, `Key Points:`, `Final plan:`, `Concept:`, `Title:`, `Conclusion:`
+  - AI self-reference: `I am an AI`, `As an AI`
+  - Contract 재선언: `I will generate the response`, `proceed with`, `Proceeding`, `Generating`
+  - Self-talk: `This looks good`, `All good/done/right`
+- **`__tests__/unit/agent/AgentController.test.ts` 재현 테스트 6건 추가** (총 45 passed)
+  - 11. 사용자가 보고한 실제 0.2.5 누출 텍스트 박제 (한글 답변 + `#키워드` 보존, 영문 trailing 메타 일괄 제거)
+  - 12. 정상 영문 본문의 마지막 단락 보존 (false positive 방지)
+  - 13. 단일 `Ready.` 트레일링 제거
+  - 14. 단일 `Looks good.` 트레일링 제거
+  - 15. 다중 트레일링 메타 단락 일괄 제거 (`Final plan:` + `I will write...` + `Ready.`)
+  - 16. 본문 중간의 메타 패턴은 보존 (트레일링이 아니므로 제거 대상 아님)
+- 결과: AgentController 단위 테스트 45 passed (기존 29 + 0.2.5 신규 10 + 0.2.6 신규 6), 전체 262/262, `tsc --noEmit` 무오류.
+- vLLM `--reasoning-parser qwen3` 적용 후에도 누수가 발생하면 클라이언트 안전망으로 동작. 파서가 정상이면 strippers는 트리거되지 않고 무해.
+
 ## [0.2.5] - 2026-04-30
 
 ### Fixed (Qwen 3.6 thinking mode 평문 누수 추가 방어)
