@@ -582,6 +582,78 @@ title: Test
         });
     });
 
+    describe('normalizeFinalContent — thinking leak defense', () => {
+        // private 메서드에 접근하기 위해 타입 캐스트 사용
+        let normalize: (content: string | undefined) => string;
+
+        beforeEach(() => {
+            normalize = (content) =>
+                (agentController as any).normalizeFinalContent(content);
+        });
+
+        it('1. 회귀 — XML 태그 제거 (기존 동작)', () => {
+            const input = '<think>internal reasoning</think>\n실제 답변입니다.';
+            expect(normalize(input)).toBe('실제 답변입니다.');
+        });
+
+        it('2. 선행 메타 산문 제거 (한국어)', () => {
+            const input =
+                '좋아, 먼저 사용자가 무엇을 원하는지 보면 파일을 요약해 달라는 것이다.\n\n## 요약\n- 첫 번째 항목\n- 두 번째 항목';
+            expect(normalize(input)).toBe('## 요약\n- 첫 번째 항목\n- 두 번째 항목');
+        });
+
+        it('3. 선행 메타 산문 제거 (영어)', () => {
+            const input =
+                'Let me think about this. The user is asking for a summary.\n\nHere is the summary:\n- Point one\n- Point two';
+            expect(normalize(input)).toBe('Here is the summary:\n- Point one\n- Point two');
+        });
+
+        it('4. 최종 답변 마커 추출 (한국어)', () => {
+            const input =
+                '좋아, 추론 과정...\n중간 생각...\n\n최종 답변:\n파일 요약: 핵심 3가지';
+            expect(normalize(input)).toBe('파일 요약: 핵심 3가지');
+        });
+
+        it('5. 최종 답변 마커 추출 (영어)', () => {
+            const input =
+                'Reasoning step 1...\nReasoning step 2...\n\nFinal answer:\nThe summary is X.';
+            expect(normalize(input)).toBe('The summary is X.');
+        });
+
+        it('6. HR 구분자 마커 추출', () => {
+            const input = 'first I think...\nthen I conclude...\n\n---\n\n실제 답변 본문';
+            expect(normalize(input)).toBe('실제 답변 본문');
+        });
+
+        it('7. 오탐 방지 — 문장 중간의 "I think"는 제거하지 않음', () => {
+            const input =
+                '## 분석\n이 코드를 보면 I think the design is intentional. 그래서 다음 단계는...\n- 결정 1\n- 결정 2';
+            expect(normalize(input)).toBe(
+                '## 분석\n이 코드를 보면 I think the design is intentional. 그래서 다음 단계는...\n- 결정 1\n- 결정 2'
+            );
+        });
+
+        it('8. 오탐 방지 — 짧은 정상 답변은 변경 없음', () => {
+            const input = '네, 수정 완료했습니다.';
+            expect(normalize(input)).toBe('네, 수정 완료했습니다.');
+        });
+
+        it('9. 빈 입력값 처리', () => {
+            expect(normalize('')).toBe('');
+            expect(normalize(undefined)).toBe('');
+        });
+
+        it('10. 추론만 있고 실제 답변이 없는 경우 — 빈 문자열 또는 최소화된 내용 반환', () => {
+            const input =
+                '좋아, 먼저 생각해봐야겠다.\n사용자가 원하는 건...';
+            // 모든 단락이 메타 패턴에 해당하면 빈 문자열을 반환해야 함
+            // (하위 fallback이 빈 콘텐츠를 처리함)
+            const result = normalize(input);
+            // 결과는 빈 문자열이거나 매우 짧은 내용이어야 함
+            expect(result.length).toBeLessThan(input.length);
+        });
+    });
+
     describe('agent mode', () => {
         it('should report agent mode enabled', () => {
             const controller = new AgentController(llmService, toolRegistry, true);

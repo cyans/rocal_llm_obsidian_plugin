@@ -528,7 +528,27 @@ export class LLMService {
             console.log('[LLM][chat] parsed response:', JSON.stringify(data, null, 2));
 
             const message = data.choices?.[0]?.message;
+
+            // vLLM reasoning_content 진단 로그 — 추론 파서 활성화 여부 확인용
+            const reasoningContent = message?.reasoning_content;
+            if (reasoningContent && typeof reasoningContent === 'string' && reasoningContent.length > 0) {
+                console.log(
+                    `[LLM][chat] reasoning_content present (length=${reasoningContent.length}); ` +
+                    `using only message.content. vLLM reasoning parser appears active.`
+                );
+            }
+
             const content = message?.content ?? '';
+
+            // reasoning_content만 있고 content가 비어 있는 경우 경고 (파서 오설정 가능성)
+            if (!content && reasoningContent) {
+                console.warn(
+                    `[LLM][chat] message.content is empty but reasoning_content has ${reasoningContent.length} chars. ` +
+                    `vLLM reasoning parser may be misconfigured or the model emitted only reasoning. ` +
+                    `Returning empty content; downstream will trigger fallback.`
+                );
+            }
+
             const toolCalls: ToolCallResponse[] = message?.tool_calls ?? [];
 
             return { content, toolCalls };

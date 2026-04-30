@@ -5,7 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-04-17
+## [0.2.5] - 2026-04-30
+
+### Fixed (Qwen 3.6 thinking mode 평문 누수 추가 방어)
+
+- **`src/agent/AgentController.ts:normalizeFinalContent` 6단계 파이프라인 재구성**
+  - 4중 방어(0.2.4 시점 `<think>`/`<thinking>`/`<reasoning>` 태그 strip)가 잡지 못하던 **태그 없는 평문 prose 누수**까지 차단.
+  - **Step A (최종 답변 경계 추출)**: 응답에 `최종 답변:` / `Final answer:` / `### 답변` / `---` (markdown hr) 마커가 있으면 마지막 발생 이후 본문만 사용. 마커 패턴은 `FINAL_ANSWER_MARKERS` 상수로 분리.
+  - **Step B (선두 메타 산문 단락 제거)**: 응답 첫 단락(들)이 `좋아,` / `먼저` / `Let me` / `I will` / `사용자가 원하는...` / `추론하면` 등 자기 narration 패턴과 일치하면 제거. 본문 중간/끝 단락은 절대 건드리지 않아 false positive 차단. 패턴은 `META_NARRATION_PATTERNS` 상수로 분리.
+  - 단락 단위(`\n{2,}` split) 처리로 단일 줄바꿈은 한 단락으로 유지 → 정상 답변의 자연스러운 줄바꿈 보존.
+- **`src/llm/LLMService.ts` 진단 로깅 추가**
+  - vLLM `--reasoning-parser`가 활성화되어 응답에 `reasoning_content`가 분리돼 도착하면 `console.log`로 기록 (값은 사용 안 함, 정상 동작 확인용).
+  - `content`가 비었는데 `reasoning_content`만 존재하면 `console.warn`으로 vLLM 파서 미설정 의심 경고 → downstream `buildToolResultFallback`이 폴백 처리.
+- **`__tests__/unit/agent/AgentController.test.ts` 재현 테스트 10개 추가**
+  - (1) `<think>` 태그 strip 회귀 / (2) 한국어 선두 메타 단락 제거 / (3) 영어 선두 메타 단락 제거 / (4) 한국어 `최종 답변:` 마커 추출 / (5) 영어 `Final answer:` 마커 추출 / (6) `---` HR 구분자 마커 / (7) 본문 중간 "I think"는 보존 / (8) 짧은 정상 답변 보존 / (9) 빈 입력 / (10) 추론만 있는 입력.
+  - 결과: AgentController 단위 테스트 39 passed (기존 29 + 신규 10), 전체 256/256, `tsc --noEmit` 무오류.
+- 본 변경은 vLLM 서버 측 `--reasoning-parser qwen3` 적용과 독립적으로 동작하는 클라이언트 측 안전망. 서버 파서가 정상 적용되면 평문 누수가 발생하지 않으므로 strippers는 거의 트리거되지 않고 진단 로그만 남는다.
 
 ### Fixed (Qwen 3.6 업그레이드 후 tool 호출 즉시 실패 수정)
 

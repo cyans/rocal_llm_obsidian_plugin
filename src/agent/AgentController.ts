@@ -460,15 +460,77 @@ ${content}`;
         return `${content.trimEnd()}\n\n## 키워드\n${newKeywords.join(' ')}\n`;
     }
 
+    // @MX:NOTE: 사고 모드 누출 방어를 위한 최종 답변 경계 마커 패턴
+    // 모델이 추론 과정과 실제 답변을 혼합하여 반환할 때, 마지막 마커 이후 내용만 추출
+    private static readonly FINAL_ANSWER_MARKERS: RegExp[] = [
+        /\n+\s*최종\s*답변\s*[:：]\s*\n?/i,
+        /\n+\s*Final\s*answer\s*[:：]\s*\n?/i,
+        /\n+\s*###\s*답변\s*\n+/i,
+        /\n+\s*---+\s*\n+(?=\S)/,
+    ];
+
+    // @MX:NOTE: 선행 메타 산문 패턴 — 답변 앞에 붙는 추론 시작 문구
+    // 단락 단위로 앞에서부터만 검사하며, 중간 내용은 절대 제거하지 않음
+    private static readonly META_NARRATION_PATTERNS: RegExp[] = [
+        /^(좋아|좋습니다|먼저|일단|우선|그럼|이제|자|음|흠)[,.\s]/,
+        /^(Let me|Let's|First[,.\s]|Now[,.\s]|Okay[,.:]|Alright[,.:]|Well[,.\s])/i,
+        /^(I (will|'ll|should|need to|am going to|'m going to|have to))\b/i,
+        /^(The user (is|wants|asked|requested|needs))/i,
+        /^사용자(가|는|께서)?\s*(원|요청|질문|물어|지시|시켰)/,
+        /^(추론|생각|분석)(해보면|하자면|하면)/,
+    ];
+
     private normalizeFinalContent(content: string | undefined): string {
         if (!content) {
             return '';
         }
 
+        // 1단계: 개행 정규화 및 공백 제거
         let normalized = content.replace(/\r\n/g, '\n').trim();
+
+        // 2단계: XML 사고 태그 제거 (기존 동작)
         normalized = normalized.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
         normalized = normalized.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
         normalized = normalized.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '').trim();
+
+        // 3단계 (신규 — Step A): 최종 답변 경계 마커 추출
+        // 마지막 마커 이후 내용만 사용 (중첩 마커 처리를 위해 마지막 발생 기준)
+        let markerFound = false;
+        for (const marker of AgentController.FINAL_ANSWER_MARKERS) {
+            // 전체 텍스트에서 마지막 발생 위치를 찾기 위해 전역 플래그 사용
+            const globalMarker = new RegExp(marker.source, marker.flags.includes('g') ? marker.flags : marker.flags + 'g');
+            let lastMatch: RegExpExecArray | null = null;
+            let m: RegExpExecArray | null;
+            while ((m = globalMarker.exec(normalized)) !== null) {
+                lastMatch = m;
+            }
+            if (lastMatch !== null) {
+                const afterMarker = normalized.slice(lastMatch.index + lastMatch[0].length).trim();
+                normalized = afterMarker;
+                markerFound = true;
+                break;
+            }
+        }
+
+        // 4단계 (신규 — Step B): 선행 메타 산문 단락 제거
+        // 마커가 이미 처리된 경우에도 잔여 메타 단락이 있을 수 있으므로 항상 실행
+        if (!markerFound || normalized.length > 0) {
+            const paragraphs = normalized.split(/\n{2,}/);
+            let startIdx = 0;
+            for (let i = 0; i < paragraphs.length; i++) {
+                const para = paragraphs[i].trim();
+                const isMeta = AgentController.META_NARRATION_PATTERNS.some(p => p.test(para));
+                if (isMeta) {
+                    startIdx = i + 1;
+                } else {
+                    break;
+                }
+            }
+            const remaining = paragraphs.slice(startIdx);
+            normalized = remaining.join('\n\n').trim();
+        }
+
+        // 5단계: 도구 호출 태그 및 아티팩트 제거 (기존 동작)
         normalized = normalized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '').trim();
         normalized = normalized.replace(/<tool>[\s\S]*?<\/tool>/gi, '').trim();
         normalized = normalized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, '').trim();
@@ -477,6 +539,8 @@ ${content}`;
         normalized = normalized.replace(/\[Calling tool:[\s\S]*$/gi, '').trim();
         normalized = normalized.replace(/\(?\{\s*"file_path"\s*:[\s\S]*$/gi, '').trim();
         normalized = normalized.replace(/<function=[\s\S]*$/gi, '').trim();
+
+        // 6단계: 연속 개행 및 후행 공백 정리 (기존 동작)
         normalized = normalized.replace(/\n{3,}/g, '\n\n');
         normalized = normalized.replace(/[ \t]+\n/g, '\n');
 

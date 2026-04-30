@@ -390,7 +390,18 @@ var LLMService = class {
       }
       console.log("[LLM][chat] parsed response:", JSON.stringify(data, null, 2));
       const message = (_g = (_f = data.choices) == null ? void 0 : _f[0]) == null ? void 0 : _g.message;
+      const reasoningContent = message == null ? void 0 : message.reasoning_content;
+      if (reasoningContent && typeof reasoningContent === "string" && reasoningContent.length > 0) {
+        console.log(
+          `[LLM][chat] reasoning_content present (length=${reasoningContent.length}); using only message.content. vLLM reasoning parser appears active.`
+        );
+      }
       const content = (_h = message == null ? void 0 : message.content) != null ? _h : "";
+      if (!content && reasoningContent) {
+        console.warn(
+          `[LLM][chat] message.content is empty but reasoning_content has ${reasoningContent.length} chars. vLLM reasoning parser may be misconfigured or the model emitted only reasoning. Returning empty content; downstream will trigger fallback.`
+        );
+      }
       const toolCalls = (_i = message == null ? void 0 : message.tool_calls) != null ? _i : [];
       return { content, toolCalls };
     } catch (error) {
@@ -1723,6 +1734,36 @@ ${newKeywords.join(" ")}
     normalized = normalized.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
     normalized = normalized.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim();
     normalized = normalized.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "").trim();
+    let markerFound = false;
+    for (const marker of _AgentController.FINAL_ANSWER_MARKERS) {
+      const globalMarker = new RegExp(marker.source, marker.flags.includes("g") ? marker.flags : marker.flags + "g");
+      let lastMatch = null;
+      let m;
+      while ((m = globalMarker.exec(normalized)) !== null) {
+        lastMatch = m;
+      }
+      if (lastMatch !== null) {
+        const afterMarker = normalized.slice(lastMatch.index + lastMatch[0].length).trim();
+        normalized = afterMarker;
+        markerFound = true;
+        break;
+      }
+    }
+    if (!markerFound || normalized.length > 0) {
+      const paragraphs = normalized.split(/\n{2,}/);
+      let startIdx = 0;
+      for (let i = 0; i < paragraphs.length; i++) {
+        const para = paragraphs[i].trim();
+        const isMeta = _AgentController.META_NARRATION_PATTERNS.some((p) => p.test(para));
+        if (isMeta) {
+          startIdx = i + 1;
+        } else {
+          break;
+        }
+      }
+      const remaining = paragraphs.slice(startIdx);
+      normalized = remaining.join("\n\n").trim();
+    }
     normalized = normalized.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "").trim();
     normalized = normalized.replace(/<tool>[\s\S]*?<\/tool>/gi, "").trim();
     normalized = normalized.replace(/<invoke>[\s\S]*?<\/invoke>/gi, "").trim();
@@ -2037,6 +2078,24 @@ _AgentController.MAX_REPEAT_TOOL_CALLS = 2;
 _AgentController.MAX_INCOMPLETE_TOOL_RETRIES = 2;
 _AgentController.MAX_TOOL_ROUNDS = 3;
 _AgentController.FINAL_TEXT_ONLY_PROMPT = "\uC774\uC81C \uB3C4\uAD6C\uB294 \uB354 \uC774\uC0C1 \uC0AC\uC6A9\uD558\uC9C0 \uB9D0\uACE0, \uC9C0\uAE08\uAE4C\uC9C0 \uC218\uC9D1\uD55C \uC815\uBCF4\uB9CC\uC73C\uB85C \uD14D\uC2A4\uD2B8\uB85C\uB9CC \uCD5C\uC885 \uB2F5\uBCC0\uD558\uC138\uC694. \uBC18\uB4DC\uC2DC \uD55C \uBC88\uC758 \uC0AC\uC6A9\uC790\uC6A9 \uCD5C\uC885 \uB2F5\uBCC0\uC73C\uB85C \uB9C8\uBB34\uB9AC\uD558\uACE0 \uCD94\uAC00 \uB3C4\uAD6C \uD638\uCD9C\uC740 \uD558\uC9C0 \uB9C8\uC138\uC694.";
+// @MX:NOTE: 사고 모드 누출 방어를 위한 최종 답변 경계 마커 패턴
+// 모델이 추론 과정과 실제 답변을 혼합하여 반환할 때, 마지막 마커 이후 내용만 추출
+_AgentController.FINAL_ANSWER_MARKERS = [
+  /\n+\s*최종\s*답변\s*[:：]\s*\n?/i,
+  /\n+\s*Final\s*answer\s*[:：]\s*\n?/i,
+  /\n+\s*###\s*답변\s*\n+/i,
+  /\n+\s*---+\s*\n+(?=\S)/
+];
+// @MX:NOTE: 선행 메타 산문 패턴 — 답변 앞에 붙는 추론 시작 문구
+// 단락 단위로 앞에서부터만 검사하며, 중간 내용은 절대 제거하지 않음
+_AgentController.META_NARRATION_PATTERNS = [
+  /^(좋아|좋습니다|먼저|일단|우선|그럼|이제|자|음|흠)[,.\s]/,
+  /^(Let me|Let's|First[,.\s]|Now[,.\s]|Okay[,.:]|Alright[,.:]|Well[,.\s])/i,
+  /^(I (will|'ll|should|need to|am going to|'m going to|have to))\b/i,
+  /^(The user (is|wants|asked|requested|needs))/i,
+  /^사용자(가|는|께서)?\s*(원|요청|질문|물어|지시|시켰)/,
+  /^(추론|생각|분석)(해보면|하자면|하면)/
+];
 var AgentController = _AgentController;
 
 // src/agent/ToolRegistry.ts
